@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "advance-cell-report",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/amirlugasi/Desktop/30DP/Advance Cell Report/server.py"],
+      "port": 8080
+    }
+  ]
+}

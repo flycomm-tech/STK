@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Advanced Cell Report — SQL Builder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+      --navy: #0a1628;
+      --dark: #0f1d32;
+      --card: #162038;
+      --border: #1e2d4a;
+      --accent: #3b82f6;
+      --accent2: #8b5cf6;
+      --red: #ef4444;
+      --orange: #f59e0b;
+      --green: #10b981;
+      --cyan: #06b6d4;
+      --text: #e2e8f0;
+      --sub: #94a3b8;
+      --muted: #64748b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      width: 380px;
+      background: var(--dark);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sb-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #sb-header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #sb-header p {
+      font-size: 12px;
+      color: var(--sub);
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+
+    .nav-link:hover { text-decoration: underline; }
+
+    #sb-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* Form controls */
+    label.field {
+      display: block;
+      font-size: 12px;
+      color: var(--sub);
+      margin-bottom: 6px;
+    }
+
+    select, input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* Polygon list */
+    #polygon-list {
+      margin-top: 12px;
+    }
+
+    .polygon-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .polygon-item .name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .polygon-item .color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .polygon-item .actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .polygon-item button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .polygon-item button:hover {
+      color: var(--text);
+    }
+
+    /* SQL Output */
+    #sql-output {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #c9d1d9;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    #sql-output .keyword { color: #ff7b72; }
+    #sql-output .function { color: #d2a8ff; }
+    #sql-output .string { color: #a5d6ff; }
+    #sql-output .number { color: #79c0ff; }
+    #sql-output .comment { color: #8b949e; }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--sub);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .sql-wrap {
+      position: relative;
+    }
+
+    /* Stats bar */
+    #stats-bar {
+      padding: 12px 20px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--sub);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Map */
+    #map-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Instructions overlay */
+    #instructions {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 13px;
+      color: var(--sub);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #instructions .material-icons {
+      color: var(--accent);
+    }
+
+    /* MCC Quick Reference */
+    .mcc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .mcc-item {
+      font-size: 11px;
+      padding: 6px 8px;
+      background: var(--card);
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .mcc-item .code {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent);
+    }
+
+    /* Leaflet overrides - white icons on dark background */
+    .leaflet-draw-toolbar a {
+      background-color: var(--card) !important;
+      border-color: var(--border) !important;
+      position: relative;
+    }
+
+    .leaflet-draw-toolbar a:hover {
+      background-color: var(--dark) !important;
+    }
+
+    /* White icon overlay */
+    .leaflet-draw-toolbar a::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 30px; height: 30px;
+      background: inherit;
+      background-color: transparent;
+      filter: invert(1);
+    }
+  </style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div id="sb-header">
+    <h1><span class="material-icons">polyline</span> SQL Builder</h1>
+    <p>Draw polygons to generate ClickHouse SQL queries</p>
+    <a href="index.html" class="nav-link">
+      <span class="material-icons" style="font-size:14px">arrow_back</span>
+      Back to Signal Map
+    </a>
+  </div>
+
+  <div id="sb-body">
+    <!-- Polygon Settings -->
+    <div class="section">
+      <h3>Polygon Settings</h3>
+
+      <label class="field">Polygon Name</label>
+      <input type="text" id="polygon-name" placeholder="e.g., Tel Aviv Area">
+
+      <label class="field">Target MCC (3 digits)</label>
+      <input type="text" id="target-mcc" placeholder="425" maxlength="3">
+
+      <label class="field">Target MNC (2-3 digits)</label>
+      <input type="text" id="target-mnc" placeholder="01" maxlength="3">
+
+      <label class="field">Operation</label>
+      <select id="operation">
+        <option value="inside">Points INSIDE polygon → Update MCC</option>
+        <option value="outside">Points OUTSIDE polygon → Update MCC</option>
+      </select>
+
+      <div id="polygon-list"></div>
+    </div>
+
+    <!-- Query Settings -->
+    <div class="section">
+      <h3>Query Settings</h3>
+
+      <label class="field">Table Name</label>
+      <input type="text" id="table-name" value="measurements">
+
+      <label class="field">Geo Coordinates Column</label>
+      <input type="text" id="geo-col" value="location_geo_coordinates">
+
+      <label class="field">Query Type</label>
+      <select id="query-type">
+        <option value="select">SELECT (Analysis)</option>
+        <option value="update">ALTER UPDATE (Modify MCC)</option>
+      </select>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="exclude-mcc" checked>
+        <label for="exclude-mcc">Exclude MCC from results</label>
+      </div>
+
+      <label class="field">Exclude MCC (e.g., 416 for Jordan)</label>
+      <input type="text" id="filter-mcc" placeholder="416">
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="include-mcc">
+        <label for="include-mcc">Include only specific MCC</label>
+      </div>
+
+      <label class="field">Include only MCC</label>
+      <input type="text" id="include-mcc-value" placeholder="e.g., 425">
+    </div>
+
+    <!-- MCC Reference -->
+    <div class="section">
+      <h3>MCC Quick Reference</h3>
+      <div class="mcc-grid">
+        <div class="mcc-item"><span>Israel</span><span class="code">425</span></div>
+        <div class="mcc-item"><span>Jordan</span><span class="code">416</span></div>
+        <div class="mcc-item"><span>Egypt</span><span class="code">602</span></div>
+        <div class="mcc-item"><span>Palestine</span><span class="code">425</span></div>
+        <div class="mcc-item"><span>Syria</span><span class="code">417</span></div>
+        <div class="mcc-item"><span>Lebanon</span><span class="code">415</span></div>
+        <div class="mcc-item"><span>Saudi</span><span class="code">420</span></div>
+        <div class="mcc-item"><span>Iran</span><span class="code">432</span></div>
+      </div>
+    </div>
+
+    <!-- Generated SQL -->
+    <div class="section">
+      <h3>Generated SQL</h3>
+      <div class="sql-wrap">
+        <button class="copy-btn" onclick="copySQL()">
+          <span class="material-icons" style="font-size:14px;vertical-align:middle">content_copy</span> Copy
+        </button>
+        <div id="sql-output">-- Draw a polygon on the map to generate SQL</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateSQL()">
+          <span class="material-icons" style="font-size:16px">code</span>
+          Generate SQL
+        </button>
+        <button class="btn btn-danger" onclick="clearPolygons()">
+          <span class="material-icons" style="font-size:16px">delete</span>
+          Clear All
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="stats-bar">
+    <span id="polygon-count">0 polygons drawn</span>
+    <span id="points-count">0 points affected</span>
+  </div>
+</aside>
+
+<div id="map-wrap">
+  <div id="instructions">
+    <span class="material-icons">info</span>
+    Use the polygon tool (left side) to draw areas on the map
+  </div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════
+
+const polygons = [];
+let map, drawnItems;
+
+// ════════════════════════════════════════════════════════════════
+//  MAP INITIALIZATION
+// ════════════════════════════════════════════════════════════════
+
+function initMap() {
+  map = L.map('map').setView([31.5, 35.0], 8);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(map);
+
+  // Initialize FeatureGroup to store editable layers
+  drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  // Initialize draw control
+  const drawControl = new L.Control.Draw({
+    edit: {
+      featureGroup: drawnItems,
+      remove: true
+    },
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: {
+          color: '#3b82f6',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.2,
+          weight: 2
+        }
+      },
+      rectangle: {
+        shapeOptions: {
+          color: '#8b5cf6',
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.2,
+          weight: 2
+        }
+      },
+      circle: false,
+      circlemarker: false,
+      marker: false,
+      polyline: false
+    }
+  });
+  map.addControl(drawControl);
+
+  // Handle polygon creation
+  map.on(L.Draw.Event.CREATED, function (e) {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+
+    const name = document.getElementById('polygon-name').value || `Polygon ${polygons.length + 1}`;
+    const coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+
+    const polygon = {
+      id: Date.now(),
+      name: name,
+      layer: layer,
+      coords: coords,
+      mcc: document.getElementById('target-mcc').value || '425',
+      mnc: document.getElementById('target-mnc').value || '01',
+      operation: document.getElementById('operation').value
+    };
+
+    polygons.push(polygon);
+    updatePolygonList();
+    updateStats();
+    generateSQL();
+
+    // Clear name input for next polygon
+    document.getElementById('polygon-name').value = '';
+  });
+
+  // Handle polygon edit
+  map.on(L.Draw.Event.EDITED, function (e) {
+    e.layers.eachLayer(function (layer) {
+      const polygon = polygons.find(p => p.layer === layer);
+      if (polygon) {
+        polygon.coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+      }
+    });
+    generateSQL();
+  });
+
+  // Handle polygon delete
+  map.on(L.Draw.Event.DELETED, function (e) {
+    e.layers.eachLayer(function (layer) {
+      const idx = polygons.findIndex(p => p.layer === layer);
+      if (idx !== -1) {
+        polygons.splice(idx, 1);
+      }
+    });
+    updatePolygonList();
+    updateStats();
+    generateSQL();
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  POLYGON LIST
+// ════════════════════════════════════════════════════════════════
+
+function updatePolygonList() {
+  const container = document.getElementById('polygon-list');
+
+  if (polygons.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">No polygons drawn yet</p>';
+    return;
+  }
+
+  container.innerHTML = polygons.map(p => `
+    <div class="polygon-item" data-id="${p.id}">
+      <div class="name">
+        <div class="color-dot" style="background:${p.operation === 'inside' ? '#3b82f6' : '#8b5cf6'}"></div>
+        <span>${p.name}</span>
+        <span style="color:var(--muted);font-size:11px">(${p.operation}, MCC:${p.mcc})</span>
+      </div>
+      <div class="actions">
+        <button onclick="zoomToPolygon(${p.id})" title="Zoom to polygon">
+          <span class="material-icons" style="font-size:18px">zoom_in</span>
+        </button>
+        <button onclick="deletePolygon(${p.id})" title="Delete polygon">
+          <span class="material-icons" style="font-size:18px">delete</span>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function zoomToPolygon(id) {
+  const polygon = polygons.find(p => p.id === id);
+  if (polygon && polygon.layer) {
+    map.fitBounds(polygon.layer.getBounds(), { padding: [50, 50] });
+  }
+}
+
+function deletePolygon(id) {
+  const idx = polygons.findIndex(p => p.id === id);
+  if (idx !== -1) {
+    drawnItems.removeLayer(polygons[idx].layer);
+    polygons.splice(idx, 1);
+    updatePolygonList();
+    updateStats();
+    generateSQL();
+  }
+}
+
+function clearPolygons() {
+  drawnItems.clearLayers();
+  polygons.length = 0;
+  updatePolygonList();
+  updateStats();
+  document.getElementById('sql-output').textContent = '-- Draw a polygon on the map to generate SQL';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SQL GENERATION
+// ════════════════════════════════════════════════════════════════
+
+function generateSQL() {
+  if (polygons.length === 0) {
+    document.getElementById('sql-output').innerHTML = '<span class="comment">-- Draw a polygon on the map to generate SQL</span>';
+    return;
+  }
+
+  const tableName = document.getElementById('table-name').value || 'measurements';
+  const geoCol = document.getElementById('geo-col').value || 'location_geo_coordinates';
+  const queryType = document.getElementById('query-type').value;
+  const excludeMcc = document.getElementById('exclude-mcc').checked;
+  const filterMcc = document.getElementById('filter-mcc').value;
+  const includeMcc = document.getElementById('include-mcc').checked;
+  const includeMccValue = document.getElementById('include-mcc-value').value;
+
+  let sql = '';
+
+  polygons.forEach((p, idx) => {
+    // Build polygon coordinates string (lon, lat) format for ClickHouse
+    const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
+
+    const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
+    const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
+
+    sql += `<span class="comment">-- ${p.name} (${p.operation.toUpperCase()})</span>\n`;
+
+    if (queryType === 'select') {
+      // SELECT query for analysis
+      sql += `<span class="keyword">SELECT</span>\n`;
+      sql += `    network_PLMN,\n`;
+      sql += `    network_operator,\n`;
+      sql += `    network_iso,\n`;
+      sql += `    <span class="function">count</span>(network_PLMN) <span class="keyword">AS</span> counted,\n`;
+      sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">1</span>) <span class="keyword">AS</span> longitude,\n`;
+      sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">2</span>) <span class="keyword">AS</span> latitude,\n`;
+      sql += `    timestamp\n`;
+      sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+      sql += `<span class="keyword">WHERE</span>\n`;
+
+      let conditions = [];
+
+      if (excludeMcc && filterMcc) {
+        conditions.push(`network_mcc != <span class="string">'${filterMcc}'</span>`);
+      }
+      if (includeMcc && includeMccValue) {
+        conditions.push(`network_mcc = <span class="string">'${includeMccValue}'</span>`);
+      }
+      conditions.push(`<span class="function">${condition}</span>`);
+
+      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+      sql += `<span class="keyword">GROUP BY</span>\n`;
+      sql += `    network_PLMN,\n`;
+      sql += `    network_operator,\n`;
+      sql += `    network_iso,\n`;
+      sql += `    longitude,\n`;
+      sql += `    latitude,\n`;
+      sql += `    timestamp;\n\n`;
+
+    } else {
+      // ALTER UPDATE query for modifying MCC
+      sql += `<span class="keyword">ALTER TABLE</span> ${tableName}\n`;
+      sql += `<span class="keyword">UPDATE</span>\n`;
+      sql += `    network_mcc = <span class="string">'${p.mcc}'</span>`;
+      if (p.mnc) {
+        sql += `,\n    network_mnc = <span class="string">'${p.mnc}'</span>`;
+      }
+      sql += `\n<span class="keyword">WHERE</span>\n`;
+
+      let conditions = [];
+      if (excludeMcc && filterMcc) {
+        conditions.push(`network_mcc = <span class="string">'${filterMcc}'</span>`);
+      }
+      if (includeMcc && includeMccValue) {
+        conditions.push(`network_mcc = <span class="string">'${includeMccValue}'</span>`);
+      }
+      conditions.push(`<span class="function">${condition}</span>`);
+
+      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')};\n\n`;
+    }
+  });
+
+  // Add count preview
+  if (polygons.length > 0) {
+    const p = polygons[0];
+    const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
+    const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
+    const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
+
+    sql += `<span class="comment">-- Count affected rows</span>\n`;
+    sql += `<span class="keyword">SELECT</span> <span class="function">count</span>() <span class="keyword">AS</span> affected_rows\n`;
+    sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+    sql += `<span class="keyword">WHERE</span> <span class="function">${condition}</span>`;
+
+    if (excludeMcc && filterMcc) {
+      sql += `\n    <span class="keyword">AND</span> network_mcc ${queryType === 'select' ? '!=' : '='} <span class="string">'${filterMcc}'</span>`;
+    }
+    sql += `;`;
+  }
+
+  document.getElementById('sql-output').innerHTML = sql;
+}
+
+function copySQL() {
+  const sqlEl = document.getElementById('sql-output');
+  const text = sqlEl.textContent || sqlEl.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.innerHTML = '<span class="material-icons" style="font-size:14px;vertical-align:middle">check</span> Copied!';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-icons" style="font-size:14px;vertical-align:middle">content_copy</span> Copy';
+    }, 2000);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  STATS
+// ════════════════════════════════════════════════════════════════
+
+function updateStats() {
+  document.getElementById('polygon-count').textContent = `${polygons.length} polygon${polygons.length !== 1 ? 's' : ''} drawn`;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  updatePolygonList();
+
+  // Re-generate SQL when settings change
+  ['table-name', 'geo-col', 'filter-mcc', 'include-mcc-value'].forEach(id => {
+    document.getElementById(id).addEventListener('input', generateSQL);
+  });
+  ['query-type'].forEach(id => {
+    document.getElementById(id).addEventListener('change', generateSQL);
+  });
+  ['exclude-mcc', 'include-mcc'].forEach(id => {
+    document.getElementById(id).addEventListener('change', generateSQL);
+  });
+});
+</script>
+
+</body>
+</html>
