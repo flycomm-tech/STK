@@ -1,4 +1,6 @@
-# CLAUDE.md - Project Context
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 **Advanced Cell Report** is a web-based cellular network signal analysis platform. It visualizes mobile network data on interactive maps, detects anomalies (potential IMSI-catchers, rogue base stations), and generates forensic intelligence reports.
@@ -29,11 +31,11 @@
 ### Signal Map (index.html)
 - CSV upload with auto-column detection
 - Heatmap and dot visualization modes
-- Multi-select filters: Operator, PLMN, ISO/Country
+- Multi-select filters: Operator, PLMN (with country names), ISO/Country
+- Operator legend with MCC codes displayed
 - Time range filtering with histogram
-- Operator legend with color coding
 - Data table with click-to-fly navigation
-- Forensic Report generation (opens in new tab)
+- Forensic Report generation (respects all active filters)
 - Bilingual support (EN/HE)
 
 ### SQL Builder (sql-builder.html)
@@ -43,6 +45,7 @@
   - ALTER UPDATE queries (modify MCC)
 - Uses `pointInPolygon()` function
 - Supports MCC filtering (include/exclude)
+- Timeline filter with date range (from/to)
 
 ### Forensic Report (generated dynamically)
 - Analyzes filtered data for anomalies
@@ -145,9 +148,24 @@ Then open http://localhost:8000
 - `applyFilters()` - Filters data and updates UI
 - `initReportControls()` - Language toggle + report button
 
-## Notes for Claude
-- The app uses Catppuccin Mocha color scheme (CSS variables)
-- Reports open in new tab via `window.open()` + `document.write()`
-- All report content is bilingual (LANG object with en/he keys)
-- Leaflet Draw plugin used for polygon drawing in SQL Builder
-- No external APIs - everything runs client-side
+## Architecture Notes
+
+### Map Styling
+All maps use CartoDB dark tiles with enhanced brightness:
+```css
+filter: brightness(1.6) contrast(1.1) saturate(1.1);
+```
+
+### Report Generation
+Reports are generated from `APP.filtered` data, which respects all active filters (operators, PLMNs, countries, date range). The report opens in a new tab via `window.open()` + `document.write()`.
+
+### Navigation
+Nav links (SQL Builder, TAC Detector) are always visible in the sidebar, positioned outside `sb-footer` to remain accessible before data upload.
+
+### Bilingual Support
+All report content uses a `LANG` object with `en`/`he` keys. Hebrew content renders RTL.
+
+### Client-Side Only
+- No backend or external APIs
+- Leaflet Draw plugin for polygon drawing in SQL Builder
+- Uses Catppuccin Mocha color scheme (CSS variables)

@@ -37,6 +37,8 @@ const FIELDS = [
   { key:'plmn',      label:'PLMN',        required:false },
   { key:'iso',       label:'ISO/Country', required:false },
   { key:'timestamp', label:'Timestamp',   required:false },
+  { key:'cell_enb',  label:'eNB ID',      required:false },
+  { key:'cell_eci',  label:'Cell ID/ECI', required:false },
 ];
 
 const TABLE_MAX = 500;
@@ -145,7 +147,101 @@ document.addEventListener('DOMContentLoaded', () => {
   initMap();
   initMultiSelects();
   setupUpload();
+  checkSQLBuilderData();
 });
+
+// Check for data passed from SQL Builder
+function checkSQLBuilderData() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('source') !== 'sqlbuilder') {
+    console.log('[Signal Map] Not from SQL Builder, skipping data check');
+    return;
+  }
+
+  console.log('[Signal Map] Loading data from SQL Builder...');
+
+  // Show loading state immediately
+  setStatus('⏳ Loading data from SQL Builder...', 'loading');
+
+  const csvData = localStorage.getItem('sqlBuilderData');
+  const timestamp = localStorage.getItem('sqlBuilderTimestamp');
+
+  console.log('[Signal Map] SQL Builder data check:', {
+    hasData: !!csvData,
+    timestamp,
+    dataLength: csvData?.length,
+    firstChars: csvData?.substring(0, 200)
+  });
+
+  if (!csvData) {
+    console.warn('[Signal Map] No SQL Builder data found in localStorage');
+    setStatus('⚠ No data received from SQL Builder. Please try executing the query again.', 'error');
+    // Remove the query parameter from URL anyway
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return;
+  }
+
+  // Clear the stored data after reading (cleanup)
+  localStorage.removeItem('sqlBuilderData');
+  localStorage.removeItem('sqlBuilderTimestamp');
+
+  // Remove the query parameter from URL
+  window.history.replaceState({}, document.title, window.location.pathname);
+
+  // Process the CSV data directly (auto-map columns from SQL Builder)
+  try {
+    const { headers, rows } = parseCSV(csvData);
+    console.log('[Signal Map] Parsed CSV:', { headers, rowCount: rows.length });
+
+    if (rows.length === 0) {
+      setStatus('⚠ No data rows found in SQL Builder results.', 'error');
+      return;
+    }
+
+    const detected = detectColumns(headers);
+    console.log('[Signal Map] Detected columns:', detected);
+
+    // SQL Builder uses known column names - build column map directly
+    const colMap = {};
+    if (detected.lat) colMap.lat = detected.lat;
+    if (detected.lon) colMap.lon = detected.lon;
+    if (detected.count) colMap.count = detected.count;
+    if (detected.operator) colMap.operator = detected.operator;
+    if (detected.plmn) colMap.plmn = detected.plmn;
+    if (detected.iso) colMap.iso = detected.iso;
+    if (detected.timestamp) colMap.timestamp = detected.timestamp;
+    if (detected.cell_enb) colMap.cell_enb = detected.cell_enb;
+    if (detected.cell_eci) colMap.cell_eci = detected.cell_eci;
+
+    console.log('[Signal Map] Column map:', colMap);
+
+    // Validate required columns
+    if (!colMap.lat || !colMap.lon) {
+      console.warn('[Signal Map] Could not auto-detect lat/lon columns, showing mapper');
+      console.log('[Signal Map] Headers were:', headers);
+      // Fall back to manual mapper if auto-detection fails
+      setStatus('');
+      showColumnMapper(headers, detected, rows, 'SQL Builder Query');
+      return;
+    }
+
+    // Hide empty state and show sidebar content
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('sb-body').classList.remove('hidden');
+    document.getElementById('sb-footer').classList.remove('hidden');
+
+    console.log('[Signal Map] Loading', rows.length, 'rows from SQL Builder...');
+    setStatus('✓ Loaded ' + rows.length.toLocaleString() + ' rows from SQL Builder', 'success');
+
+    // Clear the success message after a delay
+    setTimeout(() => setStatus(''), 3000);
+
+    loadCSVData(rows, colMap, 'SQL Builder Query (' + rows.length.toLocaleString() + ' rows)');
+  } catch (err) {
+    console.error('[Signal Map] Error loading SQL Builder data:', err);
+    setStatus('⚠ Error loading SQL Builder data: ' + err.message, 'error');
+  }
+}
 
 // ════════════════════════════════════════════════════════════════
 //  MAP
@@ -194,7 +290,7 @@ function buildDots(data) {
   if (!data.length) return;
   dotLayer = L.layerGroup();
 
-  data.forEach(([lat, lon, cnt, oi, pi, ii, ts]) => {
+  data.forEach(([lat, lon, cnt, oi, pi, ii, ts, enb, eci]) => {
     const op    = APP.operators[oi] || '';
     const plmn  = APP.plmns[pi]     || '';
     const iso   = APP.isos[ii]      || '';
@@ -221,14 +317,25 @@ function buildDots(data) {
 
     const tbl = document.createElement('table');
     tbl.className = 'popup-table';
-    [
+
+    // Build rows dynamically - only show cell fields if they have values
+    const rows = [
       ['Operator', op   || '—', !op],
       ['PLMN',     plmn || '—', !plmn],
       ['ISO',      iso  || '—', !iso],
+    ];
+
+    // Add cell info if available (from Cell/eNB Search)
+    if (enb) rows.push(['eNB', String(enb), false]);
+    if (eci) rows.push(['ECI', String(eci), false]);
+
+    rows.push(
       ['Count',    String(cnt), false],
       ['Time',     tsStr,       !ts],
-      ['Lat/Lon',  `${lat.toFixed(5)}, ${lon.toFixed(5)}`, false],
-    ].forEach(([key, val, dim]) => {
+      ['Lat/Lon',  `${lat.toFixed(5)}, ${lon.toFixed(5)}`, false]
+    );
+
+    rows.forEach(([key, val, dim]) => {
       const tr = tbl.insertRow();
       tr.insertCell().textContent = key;
       const td = tr.insertCell();
@@ -518,7 +625,7 @@ function updateTable() {
   }
 
   const frag = document.createDocumentFragment();
-  rows.forEach(([lat, lon, cnt, oi, pi, ii, ts]) => {
+  rows.forEach(([lat, lon, cnt, oi, pi, ii, ts, enb, eci]) => {
     const op    = APP.operators[oi] || '';
     const plmn  = APP.plmns[pi]     || '';
     const iso   = APP.isos[ii]      || '';
@@ -536,7 +643,7 @@ function updateTable() {
     tdOp.appendChild(document.createTextNode(op || '—'));
     tr.appendChild(tdOp);
 
-    [plmn || '—', iso || '—', tsStr, cnt, lat.toFixed(5), lon.toFixed(5)]
+    [plmn || '—', iso || '—', enb || '—', eci || '—', tsStr, cnt, lat.toFixed(5), lon.toFixed(5)]
       .forEach(val => {
         const td = document.createElement('td');
         td.textContent = val;
@@ -1086,11 +1193,13 @@ function detectColumns(headers) {
   return {
     lat:       find('lat'),
     lon:       find('lon', 'lng'),
-    count:     find('count', 'cnt', 'weight', 'value'),
+    count:     find('count', 'cnt', 'weight', 'value', 'samples'),
     operator:  find('operator', 'carrier', 'provider'),
     plmn:      find('plmn', 'mcc', 'mnc'),
     iso:       find('iso', 'country'),
-    timestamp: find('timestamp', 'time', 'date', 'datetime', 'ts'),
+    timestamp: find('timestamp', 'time', 'date', 'datetime', 'ts', 'first_seen'),
+    cell_enb:  find('cell_enb', 'enb', 'enodeb'),
+    cell_eci:  find('cell_eci', 'eci', 'ecgi', 'cell_id'),
   };
 }
 
@@ -1208,6 +1317,8 @@ function _processData(rows, colMap, filename) {
       const plmn  = colMap.plmn      ? (row[colMap.plmn]      || '')        : '';
       const iso   = colMap.iso       ? (row[colMap.iso]        || '')        : '';
       const tsRaw = colMap.timestamp ? (row[colMap.timestamp]  || '')        : '';
+      const enb   = colMap.cell_enb  ? (row[colMap.cell_enb]   || '')        : '';
+      const eci   = colMap.cell_eci  ? (row[colMap.cell_eci]   || '')        : '';
 
       let ts = null;
       if (tsRaw) {
@@ -1227,7 +1338,7 @@ function _processData(rows, colMap, filename) {
         if (!(val in lookup)) { lookup[val] = list.length; list.push(val); }
       }
 
-      points.push([lat, lon, cnt, opIdx[op], plmnIdx[plmn], isoIdx[iso], ts]);
+      points.push([lat, lon, cnt, opIdx[op], plmnIdx[plmn], isoIdx[iso], ts, enb, eci]);
     } catch (_) { /* skip bad row */ }
   });
 
@@ -1654,11 +1765,19 @@ function generateReport() {
   .timeline-item h4 { font-size: 14px; font-weight: 600; }
   .timeline-item p { font-size: 12px; color: var(--sub); }
   .footer { text-align: center; padding: 48px 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
-  @media print { body { background: #fff; color: #1a1a2e; } .cover { min-height: auto; padding: 40px; background: #f8fafc; } .card, .threat-card { border: 1px solid #e2e8f0; background: #fff; } th { background: #f1f5f9; } td { border-color: #e2e8f0; } }
+  .pdf-btn { position: fixed; top: 20px; ${isHe ? 'left' : 'right'}: 20px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(59,130,246,.3); z-index: 1000; transition: transform .2s, box-shadow .2s; }
+  .pdf-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59,130,246,.4); }
+  .pdf-btn svg { width: 18px; height: 18px; }
+  @media print { body { background: #fff; color: #1a1a2e; } .cover { min-height: auto; padding: 40px; background: #f8fafc; } .card, .threat-card { border: 1px solid #e2e8f0; background: #fff; } th { background: #f1f5f9; } td { border-color: #e2e8f0; } .pdf-btn { display: none !important; } }
   @page { size: A4; margin: 1cm; }
 </style>
 </head>
 <body>
+
+<button class="pdf-btn" onclick="window.print()">
+  <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>
+  ${isHe ? 'שמור כ-PDF' : 'Save as PDF'}
+</button>
 
 <div class="cover">
   <div class="cover-badge">${L.badge}</div>

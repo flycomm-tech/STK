@@ -68,22 +68,33 @@
 
     .nav-links {
       display: flex;
-      gap: 12px;
-      margin-top: 12px;
+      gap: 8px;
+      margin-top: 16px;
     }
     .nav-link {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      color: var(--accent);
+      justify-content: center;
+      gap: 6px;
+      color: var(--text);
       text-decoration: none;
-      font-size: 12px;
-      padding: 4px 8px;
-      background: rgba(59, 130, 246, 0.1);
-      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 10px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.15s;
+      flex: 1;
     }
-
-    .nav-link:hover { background: rgba(59, 130, 246, 0.2); }
+    .nav-link:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .nav-link .material-icons {
+      font-size: 18px;
+    }
 
     #sb-body {
       flex: 1;
@@ -207,8 +218,17 @@
 
     .btn-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 16px;
+    }
+    .btn-row .btn {
+      flex: 1;
+      min-width: 100px;
+    }
+    .btn-row .btn-danger {
+      flex: 0;
+      min-width: auto;
     }
 
     /* Polygon list */
@@ -312,6 +332,192 @@
       justify-content: space-between;
     }
 
+    /* Connection status */
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    .connection-status.disconnected {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--red);
+    }
+    .connection-status.connected {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--green);
+    }
+    .connection-status.connecting {
+      background: rgba(251, 191, 36, 0.1);
+      color: var(--orange);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Results table */
+    #results-section {
+      display: none;
+      margin-top: 16px;
+    }
+    #results-section.visible {
+      display: block;
+    }
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .results-header h4 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .results-meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    #results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      background: var(--card);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #results-table th {
+      background: var(--dark);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--sub);
+      border-bottom: 1px solid var(--border);
+    }
+    #results-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #results-table tr:hover td {
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .results-wrap {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .error-msg {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--red);
+      font-size: 12px;
+    }
+    .btn-execute {
+      background: var(--green);
+      color: #fff;
+    }
+    .btn-execute:hover {
+      background: #059669;
+    }
+    .btn-execute:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .tech-checkboxes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .tech-checkboxes .checkbox-row {
+      margin-bottom: 0;
+    }
+    #tac-options {
+      background: rgba(6, 182, 212, 0.05);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+
+    /* MCC Input with dropdown + manual */
+    .mcc-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .mcc-select {
+      flex: 2;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .mcc-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .mcc-or {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .mcc-manual {
+      flex: 1;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 0 !important;
+    }
+    .mcc-manual:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
     /* Map */
     #map-wrap {
       flex: 1;
@@ -402,17 +608,54 @@
     <p>Draw polygons to generate ClickHouse SQL queries</p>
     <div class="nav-links">
       <a href="index.html" class="nav-link">
-        <span class="material-icons" style="font-size:14px">arrow_back</span>
+        <span class="material-icons">map</span>
         Signal Map
       </a>
       <a href="anomaly-detector.html" class="nav-link">
-        <span class="material-icons" style="font-size:14px">security</span>
+        <span class="material-icons">radar</span>
         TAC Detector
       </a>
     </div>
   </div>
 
   <div id="sb-body">
+    <!-- Database Connection -->
+    <div class="section">
+      <h3>Database Connection</h3>
+
+      <div id="connection-status" class="connection-status disconnected">
+        <span class="status-dot"></span>
+        <span id="status-text">Not connected</span>
+      </div>
+
+      <label class="field">Host</label>
+      <input type="text" id="db-host" value="vusqo3wrfh.us-east-2.aws.clickhouse.cloud" placeholder="your-instance.clickhouse.cloud">
+
+      <label class="field">Database</label>
+      <input type="text" id="db-name" value="default" placeholder="default">
+
+      <label class="field">Username</label>
+      <input type="text" id="db-user" placeholder="default">
+
+      <label class="field">Password</label>
+      <input type="password" id="db-pass" placeholder="••••••••">
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="save-creds" checked>
+        <label for="save-creds">Remember credentials locally</label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="testConnection()">
+          <span class="material-icons" style="font-size:16px">sync</span>
+          Test Connection
+        </button>
+        <button class="btn btn-danger" onclick="clearCredentials()" style="padding:10px 12px" title="Clear saved credentials">
+          <span class="material-icons" style="font-size:16px">delete</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Polygon Settings -->
     <div class="section">
       <h3>Polygon Settings</h3>
@@ -420,16 +663,10 @@
       <label class="field">Polygon Name</label>
       <input type="text" id="polygon-name" placeholder="e.g., Tel Aviv Area">
 
-      <label class="field">Target MCC (3 digits)</label>
-      <input type="text" id="target-mcc" placeholder="425" maxlength="3">
-
-      <label class="field">Target MNC (2-3 digits)</label>
-      <input type="text" id="target-mnc" placeholder="01" maxlength="3">
-
       <label class="field">Operation</label>
       <select id="operation">
-        <option value="inside">Points INSIDE polygon → Update MCC</option>
-        <option value="outside">Points OUTSIDE polygon → Update MCC</option>
+        <option value="inside">Points INSIDE polygon</option>
+        <option value="outside">Points OUTSIDE polygon</option>
       </select>
 
       <div id="polygon-list"></div>
@@ -447,17 +684,56 @@
 
       <label class="field">Query Type</label>
       <select id="query-type">
-        <option value="select">SELECT (Analysis)</option>
-        <option value="update">ALTER UPDATE (Modify MCC)</option>
+        <option value="select">SELECT (Signal Analysis)</option>
+        <option value="cell">Cell/eNB Search</option>
+        <option value="tac">TAC Anomaly Detection</option>
       </select>
+
+      <!-- Cell/eNB Search options -->
+      <div id="cell-options" style="display:none;">
+        <label class="field">eNB IDs (comma-separated)</label>
+        <textarea id="enb-list" placeholder="e.g., 70508, 73255, 80120" rows="2" style="width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'JetBrains Mono',monospace;resize:vertical;margin-bottom:12px;"></textarea>
+
+        <label class="field">Cell IDs / ECI (comma-separated)</label>
+        <textarea id="ci-list" placeholder="e.g., 18050048, 18753303, 19200512" rows="2" style="width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-family:'JetBrains Mono',monospace;resize:vertical;margin-bottom:12px;"></textarea>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="cell-use-polygon">
+          <label for="cell-use-polygon">Also filter by polygon (optional)</label>
+        </div>
+      </div>
+
+      <!-- TAC-specific options -->
+      <div id="tac-options" style="display:none;">
+        <label class="field">Technology</label>
+        <div class="tech-checkboxes">
+          <label class="checkbox-row"><input type="checkbox" id="tech-lte" checked> LTE</label>
+          <label class="checkbox-row"><input type="checkbox" id="tech-nr"> NR (5G)</label>
+          <label class="checkbox-row"><input type="checkbox" id="tech-wcdma"> WCDMA (3G)</label>
+          <label class="checkbox-row"><input type="checkbox" id="tech-gsm"> GSM (2G)</label>
+          <label class="checkbox-row"><input type="checkbox" id="tech-cdma"> CDMA</label>
+        </div>
+
+        <label class="field">Min TAC Changes</label>
+        <input type="number" id="min-tac-changes" value="2" min="1" max="100">
+
+        <label class="field">Result Limit</label>
+        <input type="number" id="tac-limit" value="5000" min="10" max="50000">
+      </div>
 
       <div class="checkbox-row">
         <input type="checkbox" id="exclude-mcc" checked>
         <label for="exclude-mcc">Exclude MCC from results</label>
       </div>
 
-      <label class="field">Exclude MCC (e.g., 416 for Jordan)</label>
-      <input type="text" id="filter-mcc" placeholder="416">
+      <label class="field">Exclude MCC</label>
+      <div class="mcc-input-wrap">
+        <select id="filter-mcc-select" class="mcc-select">
+          <option value="">-- Select Country --</option>
+        </select>
+        <span class="mcc-or">or</span>
+        <input type="text" id="filter-mcc" placeholder="Manual: 416" maxlength="3" class="mcc-manual">
+      </div>
 
       <div class="checkbox-row">
         <input type="checkbox" id="include-mcc">
@@ -465,7 +741,13 @@
       </div>
 
       <label class="field">Include only MCC</label>
-      <input type="text" id="include-mcc-value" placeholder="e.g., 425">
+      <div class="mcc-input-wrap">
+        <select id="include-mcc-select" class="mcc-select">
+          <option value="">-- Select Country --</option>
+        </select>
+        <span class="mcc-or">or</span>
+        <input type="text" id="include-mcc-value" placeholder="Manual: 425" maxlength="3" class="mcc-manual">
+      </div>
     </div>
 
     <!-- Timeline Filter -->
@@ -513,15 +795,33 @@
         <div id="sql-output">-- Draw a polygon on the map to generate SQL</div>
       </div>
 
-      <div class="btn-row">
+      <div class="btn-row" style="margin-top:12px">
         <button class="btn btn-primary" onclick="generateSQL()">
-          <span class="material-icons" style="font-size:16px">code</span>
-          Generate SQL
+          <span class="material-icons" style="font-size:18px">code</span>
+          Generate
         </button>
-        <button class="btn btn-danger" onclick="clearPolygons()">
-          <span class="material-icons" style="font-size:16px">delete</span>
-          Clear All
+        <button class="btn btn-execute" id="execute-btn" onclick="executeSQL()" disabled>
+          <span class="material-icons" style="font-size:18px">play_arrow</span>
+          Execute
         </button>
+        <button class="btn btn-danger" onclick="clearPolygons()" style="flex:0;padding:10px 12px" title="Clear all polygons">
+          <span class="material-icons" style="font-size:18px">delete</span>
+        </button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn" id="view-map-btn" onclick="viewOnMap()" disabled style="background:var(--cyan);color:#fff;flex:1;display:flex">
+          <span class="material-icons" style="font-size:18px">map</span>
+          <span id="view-btn-text">View on Signal Map</span>
+        </button>
+      </div>
+
+      <!-- Results Section -->
+      <div id="results-section">
+        <div class="results-header">
+          <h4>Query Results</h4>
+          <span class="results-meta" id="results-meta"></span>
+        </div>
+        <div id="results-container"></div>
       </div>
     </div>
   </div>
@@ -549,6 +849,822 @@
 
 const polygons = [];
 let map, drawnItems;
+let isConnected = false;
+
+// ════════════════════════════════════════════════════════════════
+//  MCC TABLE (Mobile Country Codes)
+// ════════════════════════════════════════════════════════════════
+
+const MCC_TABLE = {
+  // Middle East
+  '425': { country: 'il', name: 'Israel' },
+  '416': { country: 'jo', name: 'Jordan' },
+  '602': { country: 'eg', name: 'Egypt' },
+  '420': { country: 'sa', name: 'Saudi Arabia' },
+  '418': { country: 'iq', name: 'Iraq' },
+  '419': { country: 'kw', name: 'Kuwait' },
+  '417': { country: 'sy', name: 'Syria' },
+  '415': { country: 'lb', name: 'Lebanon' },
+  '421': { country: 'ye', name: 'Yemen' },
+  '424': { country: 'ae', name: 'UAE' },
+  '427': { country: 'qa', name: 'Qatar' },
+  '426': { country: 'bh', name: 'Bahrain' },
+  '422': { country: 'om', name: 'Oman' },
+  '432': { country: 'ir', name: 'Iran' },
+  '423': { country: 'ps', name: 'Palestine' },
+  // North Africa
+  '603': { country: 'dz', name: 'Algeria' },
+  '604': { country: 'ma', name: 'Morocco' },
+  '605': { country: 'tn', name: 'Tunisia' },
+  '606': { country: 'ly', name: 'Libya' },
+  '607': { country: 'gm', name: 'Gambia' },
+  '608': { country: 'sn', name: 'Senegal' },
+  '612': { country: 'ci', name: 'Ivory Coast' },
+  '620': { country: 'gh', name: 'Ghana' },
+  '621': { country: 'ng', name: 'Nigeria' },
+  '630': { country: 'cd', name: 'DR Congo' },
+  '639': { country: 'ke', name: 'Kenya' },
+  '640': { country: 'tz', name: 'Tanzania' },
+  '655': { country: 'za', name: 'South Africa' },
+  // Europe
+  '262': { country: 'de', name: 'Germany' },
+  '208': { country: 'fr', name: 'France' },
+  '234': { country: 'gb', name: 'United Kingdom' },
+  '222': { country: 'it', name: 'Italy' },
+  '214': { country: 'es', name: 'Spain' },
+  '204': { country: 'nl', name: 'Netherlands' },
+  '206': { country: 'be', name: 'Belgium' },
+  '228': { country: 'ch', name: 'Switzerland' },
+  '232': { country: 'at', name: 'Austria' },
+  '260': { country: 'pl', name: 'Poland' },
+  '226': { country: 'ro', name: 'Romania' },
+  '230': { country: 'cz', name: 'Czech Republic' },
+  '231': { country: 'sk', name: 'Slovakia' },
+  '240': { country: 'se', name: 'Sweden' },
+  '242': { country: 'no', name: 'Norway' },
+  '244': { country: 'fi', name: 'Finland' },
+  '246': { country: 'lt', name: 'Lithuania' },
+  '247': { country: 'lv', name: 'Latvia' },
+  '248': { country: 'ee', name: 'Estonia' },
+  '255': { country: 'ua', name: 'Ukraine' },
+  '250': { country: 'ru', name: 'Russia' },
+  '257': { country: 'by', name: 'Belarus' },
+  '202': { country: 'gr', name: 'Greece' },
+  '219': { country: 'hr', name: 'Croatia' },
+  '284': { country: 'bg', name: 'Bulgaria' },
+  '216': { country: 'hu', name: 'Hungary' },
+  '286': { country: 'tr', name: 'Turkey' },
+  '293': { country: 'si', name: 'Slovenia' },
+  '220': { country: 'rs', name: 'Serbia' },
+  '270': { country: 'lu', name: 'Luxembourg' },
+  '272': { country: 'ie', name: 'Ireland' },
+  '274': { country: 'is', name: 'Iceland' },
+  '276': { country: 'al', name: 'Albania' },
+  '278': { country: 'mt', name: 'Malta' },
+  '280': { country: 'cy', name: 'Cyprus' },
+  '282': { country: 'ge', name: 'Georgia' },
+  '283': { country: 'am', name: 'Armenia' },
+  '292': { country: 'sm', name: 'San Marino' },
+  '294': { country: 'mk', name: 'North Macedonia' },
+  '295': { country: 'li', name: 'Liechtenstein' },
+  '297': { country: 'me', name: 'Montenegro' },
+  // Americas
+  '310': { country: 'us', name: 'United States' },
+  '311': { country: 'us', name: 'United States' },
+  '312': { country: 'us', name: 'United States' },
+  '302': { country: 'ca', name: 'Canada' },
+  '334': { country: 'mx', name: 'Mexico' },
+  '724': { country: 'br', name: 'Brazil' },
+  '722': { country: 'ar', name: 'Argentina' },
+  '730': { country: 'cl', name: 'Chile' },
+  '732': { country: 'co', name: 'Colombia' },
+  '716': { country: 'pe', name: 'Peru' },
+  '734': { country: 've', name: 'Venezuela' },
+  // Asia Pacific
+  '440': { country: 'jp', name: 'Japan' },
+  '441': { country: 'jp', name: 'Japan' },
+  '450': { country: 'kr', name: 'South Korea' },
+  '460': { country: 'cn', name: 'China' },
+  '461': { country: 'cn', name: 'China' },
+  '466': { country: 'tw', name: 'Taiwan' },
+  '470': { country: 'bd', name: 'Bangladesh' },
+  '510': { country: 'id', name: 'Indonesia' },
+  '515': { country: 'ph', name: 'Philippines' },
+  '520': { country: 'th', name: 'Thailand' },
+  '525': { country: 'sg', name: 'Singapore' },
+  '528': { country: 'bn', name: 'Brunei' },
+  '530': { country: 'nz', name: 'New Zealand' },
+  '505': { country: 'au', name: 'Australia' },
+  '404': { country: 'in', name: 'India' },
+  '405': { country: 'in', name: 'India' },
+  '410': { country: 'pk', name: 'Pakistan' },
+  '413': { country: 'lk', name: 'Sri Lanka' },
+  '452': { country: 'vn', name: 'Vietnam' },
+  '455': { country: 'mo', name: 'Macau' },
+  '454': { country: 'hk', name: 'Hong Kong' },
+  '456': { country: 'kh', name: 'Cambodia' },
+  '457': { country: 'la', name: 'Laos' },
+  // Special codes
+  '001': { country: 'xx', name: 'Test Network' },
+  '000': { country: 'xx', name: 'Unknown/Invalid' },
+};
+
+function populateMccDropdowns() {
+  const excludeSelect = document.getElementById('filter-mcc-select');
+  const includeSelect = document.getElementById('include-mcc-select');
+
+  // Sort by country name
+  const sorted = Object.entries(MCC_TABLE)
+    .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+  // Group by region for better UX
+  const regions = {
+    'Middle East': ['425', '416', '602', '420', '418', '419', '417', '415', '421', '424', '427', '426', '422', '432', '423'],
+    'Europe': ['262', '208', '234', '222', '214', '204', '206', '228', '232', '260', '226', '230', '231', '240', '242', '244', '246', '247', '248', '255', '250', '257', '202', '219', '284', '216', '286', '293', '220', '270', '272', '274', '276', '278', '280', '282', '283', '292', '294', '295', '297'],
+    'Africa': ['603', '604', '605', '606', '607', '608', '612', '620', '621', '630', '639', '640', '655'],
+    'Americas': ['310', '311', '312', '302', '334', '724', '722', '730', '732', '716', '734'],
+    'Asia Pacific': ['440', '441', '450', '460', '461', '466', '470', '510', '515', '520', '525', '528', '530', '505', '404', '405', '410', '413', '452', '455', '454', '456', '457'],
+  };
+
+  [excludeSelect, includeSelect].forEach(select => {
+    // Add grouped options
+    Object.entries(regions).forEach(([region, mccs]) => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = region;
+
+      mccs.forEach(mcc => {
+        if (MCC_TABLE[mcc]) {
+          const opt = document.createElement('option');
+          opt.value = mcc;
+          opt.textContent = `${MCC_TABLE[mcc].name} (${mcc})`;
+          optgroup.appendChild(opt);
+        }
+      });
+
+      select.appendChild(optgroup);
+    });
+  });
+
+  // Sync dropdown with manual input
+  document.getElementById('filter-mcc-select').addEventListener('change', (e) => {
+    document.getElementById('filter-mcc').value = e.target.value;
+    generateSQL();
+  });
+
+  document.getElementById('include-mcc-select').addEventListener('change', (e) => {
+    document.getElementById('include-mcc-value').value = e.target.value;
+    generateSQL();
+  });
+
+  // Sync manual input with dropdown
+  document.getElementById('filter-mcc').addEventListener('input', (e) => {
+    const val = e.target.value;
+    const select = document.getElementById('filter-mcc-select');
+    if (MCC_TABLE[val]) {
+      select.value = val;
+    } else {
+      select.value = '';
+    }
+    generateSQL();
+  });
+
+  document.getElementById('include-mcc-value').addEventListener('input', (e) => {
+    const val = e.target.value;
+    const select = document.getElementById('include-mcc-select');
+    if (MCC_TABLE[val]) {
+      select.value = val;
+    } else {
+      select.value = '';
+    }
+    generateSQL();
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DATABASE CONNECTION
+// ════════════════════════════════════════════════════════════════
+
+const CREDS_KEY = 'clickhouse_credentials';
+
+function getConnectionConfig() {
+  return {
+    host: document.getElementById('db-host').value.trim(),
+    database: document.getElementById('db-name').value.trim() || 'default',
+    user: document.getElementById('db-user').value.trim(),
+    password: document.getElementById('db-pass').value
+  };
+}
+
+function saveCredentials() {
+  if (!document.getElementById('save-creds').checked) return;
+
+  const config = getConnectionConfig();
+  // Encode password in base64 (not secure, but better than plain text)
+  const creds = {
+    host: config.host,
+    database: config.database,
+    user: config.user,
+    password: btoa(config.password)
+  };
+  localStorage.setItem(CREDS_KEY, JSON.stringify(creds));
+}
+
+function loadCredentials() {
+  const saved = localStorage.getItem(CREDS_KEY);
+  if (!saved) return;
+
+  try {
+    const creds = JSON.parse(saved);
+    if (creds.host) document.getElementById('db-host').value = creds.host;
+    if (creds.database) document.getElementById('db-name').value = creds.database;
+    if (creds.user) document.getElementById('db-user').value = creds.user;
+    if (creds.password) document.getElementById('db-pass').value = atob(creds.password);
+  } catch (e) {
+    console.warn('Failed to load saved credentials:', e);
+  }
+}
+
+function clearCredentials() {
+  localStorage.removeItem(CREDS_KEY);
+  document.getElementById('db-user').value = '';
+  document.getElementById('db-pass').value = '';
+  updateConnectionStatus('disconnected', 'Credentials cleared');
+}
+
+function updateConnectionStatus(status, message) {
+  const statusEl = document.getElementById('connection-status');
+  const textEl = document.getElementById('status-text');
+  const executeBtn = document.getElementById('execute-btn');
+
+  statusEl.className = `connection-status ${status}`;
+  textEl.textContent = message;
+
+  if (status === 'connected') {
+    isConnected = true;
+    executeBtn.disabled = false;
+  } else {
+    isConnected = false;
+    executeBtn.disabled = true;
+  }
+}
+
+async function executeClickHouseQuery(query, format = 'JSON') {
+  const config = getConnectionConfig();
+
+  if (!config.host || !config.user || !config.password) {
+    throw new Error('Please fill in all connection fields');
+  }
+
+  // Build URL with HTTPS (ClickHouse Cloud uses port 443)
+  const url = `https://${config.host}/?database=${encodeURIComponent(config.database)}&default_format=${format}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + btoa(`${config.user}:${config.password}`),
+      'Content-Type': 'text/plain'
+    },
+    body: query
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `HTTP ${response.status}`);
+  }
+
+  if (format === 'JSON') {
+    return await response.json();
+  }
+  return await response.text();
+}
+
+async function testConnection() {
+  updateConnectionStatus('connecting', 'Connecting...');
+
+  try {
+    const result = await executeClickHouseQuery('SELECT 1 AS test, version() AS version');
+
+    if (result && result.data && result.data.length > 0) {
+      const version = result.data[0].version || 'unknown';
+      updateConnectionStatus('connected', `Connected (v${version})`);
+      saveCredentials();
+    } else {
+      updateConnectionStatus('connected', 'Connected');
+      saveCredentials();
+    }
+  } catch (err) {
+    console.error('Connection error:', err);
+    updateConnectionStatus('disconnected', `Error: ${err.message.substring(0, 50)}`);
+  }
+}
+
+async function executeSQL() {
+  if (!isConnected) {
+    alert('Please connect to the database first');
+    return;
+  }
+
+  if (polygons.length === 0) {
+    alert('Please draw at least one polygon on the map');
+    return;
+  }
+
+  const resultsSection = document.getElementById('results-section');
+  const resultsContainer = document.getElementById('results-container');
+  const resultsMeta = document.getElementById('results-meta');
+
+  resultsSection.classList.add('visible');
+  resultsContainer.innerHTML = '<p style="color:var(--sub);padding:20px;text-align:center;">Executing query...</p>';
+
+  try {
+    // Get raw SQL without HTML formatting
+    const rawSQL = getRawSQL();
+    const startTime = performance.now();
+    const result = await executeClickHouseQuery(rawSQL);
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+    if (result && result.data) {
+      resultsMeta.textContent = `${result.data.length} rows in ${elapsed}s`;
+      displayResults(result);
+      // Store results for map viewing
+      lastQueryResults = result;
+      document.getElementById('view-map-btn').disabled = false;
+    } else {
+      resultsMeta.textContent = `Completed in ${elapsed}s`;
+      resultsContainer.innerHTML = '<p style="color:var(--green);padding:20px;text-align:center;">Query executed successfully</p>';
+      lastQueryResults = null;
+      document.getElementById('view-map-btn').disabled = true;
+    }
+  } catch (err) {
+    console.error('Query error:', err);
+    resultsMeta.textContent = 'Error';
+    resultsContainer.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function getRawSQL() {
+  // Generate raw SQL without HTML formatting
+  const queryType = document.getElementById('query-type').value;
+  const cellUsePolygon = document.getElementById('cell-use-polygon')?.checked;
+
+  // Cell queries may not need a polygon
+  if (polygons.length === 0 && queryType !== 'cell') return '';
+  if (polygons.length === 0 && queryType === 'cell' && cellUsePolygon) return '';
+
+  const tableName = document.getElementById('table-name').value || 'measurements';
+  const geoCol = document.getElementById('geo-col').value || 'location_geo_coordinates';
+  const excludeMcc = document.getElementById('exclude-mcc').checked;
+  const filterMcc = document.getElementById('filter-mcc').value;
+  const includeMcc = document.getElementById('include-mcc').checked;
+  const includeMccValue = document.getElementById('include-mcc-value').value;
+  const useTimeline = document.getElementById('use-timeline').checked;
+  const timestampCol = document.getElementById('timestamp-col').value || 'timestamp';
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  // Only execute the first polygon's SELECT query
+  const p = polygons[0];
+  const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
+  const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
+  const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
+
+  let sql = '';
+
+  if (queryType === 'select') {
+    sql += `SELECT\n`;
+    sql += `    network_PLMN,\n`;
+    sql += `    network_operator,\n`;
+    sql += `    network_iso,\n`;
+    sql += `    count(network_PLMN) AS counted,\n`;
+    sql += `    tupleElement(${geoCol}, 1) AS longitude,\n`;
+    sql += `    tupleElement(${geoCol}, 2) AS latitude,\n`;
+    sql += `    timestamp\n`;
+    sql += `FROM ${tableName}\n`;
+    sql += `WHERE\n`;
+
+    let conditions = [];
+    if (excludeMcc && filterMcc) {
+      conditions.push(`network_mcc != '${filterMcc}'`);
+    }
+    if (includeMcc && includeMccValue) {
+      conditions.push(`network_mcc = '${includeMccValue}'`);
+    }
+    if (useTimeline && dateFrom) {
+      conditions.push(`${timestampCol} >= toDateTime('${dateFrom} 00:00:00')`);
+    }
+    if (useTimeline && dateTo) {
+      conditions.push(`${timestampCol} <= toDateTime('${dateTo} 23:59:59')`);
+    }
+    conditions.push(condition);
+
+    sql += `    ${conditions.join('\n    AND ')}\n`;
+    sql += `GROUP BY\n`;
+    sql += `    network_PLMN,\n`;
+    sql += `    network_operator,\n`;
+    sql += `    network_iso,\n`;
+    sql += `    longitude,\n`;
+    sql += `    latitude,\n`;
+    sql += `    timestamp\n`;
+    sql += `LIMIT 50000`;
+  } else if (queryType === 'tac') {
+    // TAC Anomaly Detection query
+    const minTacChanges = document.getElementById('min-tac-changes').value || '2';
+    const tacLimit = document.getElementById('tac-limit').value || '5000';
+
+    // Get selected technologies
+    const techs = [];
+    if (document.getElementById('tech-lte').checked) techs.push("'LTE'");
+    if (document.getElementById('tech-nr').checked) techs.push("'NR'");
+    if (document.getElementById('tech-wcdma').checked) techs.push("'WCDMA'");
+    if (document.getElementById('tech-gsm').checked) techs.push("'GSM'");
+    if (document.getElementById('tech-cdma').checked) techs.push("'CDMA'");
+
+    sql += `SELECT\n`;
+    sql += `    network_mcc,\n`;
+    sql += `    network_mnc,\n`;
+    sql += `    cell_eci,\n`;
+    sql += `    cell_enb,\n`;
+    sql += `    cell_ci,\n`;
+    sql += `    uniqExact(cell_tac) AS distinct_tac_count,\n`;
+    sql += `    groupUniqArray(cell_tac) AS tac_list,\n`;
+    sql += `    min(timestamp) AS first_seen,\n`;
+    sql += `    max(timestamp) AS last_seen,\n`;
+    sql += `    count() AS total_samples,\n`;
+    sql += `    groupUniqArray(network_operator) AS operator_names,\n`;
+    sql += `    groupUniqArray(location_tileId_10) AS location_tiles\n`;
+    sql += `FROM ${tableName}\n`;
+    sql += `WHERE\n`;
+
+    let conditions = [];
+    conditions.push(`cell_eci IS NOT NULL`);
+    conditions.push(`cell_tac IS NOT NULL`);
+    conditions.push(`network_mcc IS NOT NULL`);
+
+    if (techs.length > 0 && techs.length < 5) {
+      conditions.push(`tech IN (${techs.join(', ')})`);
+    }
+    if (includeMcc && includeMccValue) {
+      conditions.push(`network_mcc = '${includeMccValue}'`);
+    }
+    if (excludeMcc && filterMcc) {
+      conditions.push(`network_mcc != '${filterMcc}'`);
+    }
+    if (useTimeline && dateFrom) {
+      conditions.push(`${timestampCol} >= toDateTime('${dateFrom} 00:00:00')`);
+    }
+    if (useTimeline && dateTo) {
+      conditions.push(`${timestampCol} <= toDateTime('${dateTo} 23:59:59')`);
+    }
+    conditions.push(condition);
+
+    sql += `    ${conditions.join('\n    AND ')}\n`;
+    sql += `GROUP BY\n`;
+    sql += `    network_mcc,\n`;
+    sql += `    network_mnc,\n`;
+    sql += `    cell_eci,\n`;
+    sql += `    cell_enb,\n`;
+    sql += `    cell_ci\n`;
+    sql += `HAVING\n`;
+    sql += `    distinct_tac_count > ${minTacChanges}\n`;
+    sql += `ORDER BY\n`;
+    sql += `    distinct_tac_count DESC,\n`;
+    sql += `    total_samples DESC\n`;
+    sql += `LIMIT ${tacLimit}`;
+  } else if (queryType === 'cell') {
+    // Cell/eNB Search query
+    const enbListRaw = document.getElementById('enb-list').value;
+    const ciListRaw = document.getElementById('ci-list').value;
+
+    // Parse comma-separated lists
+    const enbList = enbListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+    const ciList = ciListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+
+    if (enbList.length === 0 && ciList.length === 0) return '';
+
+    sql += `SELECT\n`;
+    sql += `    cell_enb,\n`;
+    sql += `    cell_eci,\n`;
+    sql += `    cell_ci,\n`;
+    sql += `    network_mcc,\n`;
+    sql += `    network_mnc,\n`;
+    sql += `    network_PLMN,\n`;
+    sql += `    network_operator,\n`;
+    sql += `    count() AS samples,\n`;
+    sql += `    min(timestamp) AS first_seen,\n`;
+    sql += `    max(timestamp) AS last_seen,\n`;
+    sql += `    tupleElement(${geoCol}, 1) AS longitude,\n`;
+    sql += `    tupleElement(${geoCol}, 2) AS latitude\n`;
+    sql += `FROM ${tableName}\n`;
+    sql += `WHERE\n`;
+
+    let conditions = [];
+
+    // Cell filters (eNB OR ECI) - combined with OR
+    let cellConditions = [];
+    if (enbList.length > 0) {
+      cellConditions.push(`cell_enb IN (${enbList.join(', ')})`);
+    }
+    if (ciList.length > 0) {
+      cellConditions.push(`cell_eci IN (${ciList.join(', ')})`);
+    }
+    if (cellConditions.length > 0) {
+      conditions.push(`(${cellConditions.join(' OR ')})`);
+    }
+
+    // Other filters (AND)
+    if (excludeMcc && filterMcc) {
+      conditions.push(`network_mcc != '${filterMcc}'`);
+    }
+    if (includeMcc && includeMccValue) {
+      conditions.push(`network_mcc = '${includeMccValue}'`);
+    }
+    if (useTimeline && dateFrom) {
+      conditions.push(`${timestampCol} >= toDateTime('${dateFrom} 00:00:00')`);
+    }
+    if (useTimeline && dateTo) {
+      conditions.push(`${timestampCol} <= toDateTime('${dateTo} 23:59:59')`);
+    }
+    if (cellUsePolygon && polygons.length > 0) {
+      conditions.push(condition);
+    }
+
+    sql += `    ${conditions.join('\n    AND ')}\n`;
+    sql += `GROUP BY\n`;
+    sql += `    cell_enb,\n`;
+    sql += `    cell_eci,\n`;
+    sql += `    cell_ci,\n`;
+    sql += `    network_mcc,\n`;
+    sql += `    network_mnc,\n`;
+    sql += `    network_PLMN,\n`;
+    sql += `    network_operator,\n`;
+    sql += `    longitude,\n`;
+    sql += `    latitude\n`;
+    sql += `ORDER BY\n`;
+    sql += `    cell_enb,\n`;
+    sql += `    samples DESC\n`;
+    sql += `LIMIT 50000`;
+  }
+
+  return sql;
+}
+
+function displayResults(result) {
+  const container = document.getElementById('results-container');
+
+  if (!result.data || result.data.length === 0) {
+    container.innerHTML = '<p style="color:var(--sub);padding:20px;text-align:center;">No results</p>';
+    return;
+  }
+
+  const columns = Object.keys(result.data[0]);
+
+  let html = '<div class="results-wrap"><table id="results-table"><thead><tr>';
+  columns.forEach(col => {
+    html += `<th>${escapeHtml(col)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  result.data.forEach(row => {
+    html += '<tr>';
+    columns.forEach(col => {
+      let val = row[col];
+      if (val === null || val === undefined) val = '';
+      if (typeof val === 'object') val = JSON.stringify(val);
+      html += `<td>${escapeHtml(String(val))}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Store last query results for map viewing
+let lastQueryResults = null;
+
+async function viewOnMap() {
+  const queryType = document.getElementById('query-type').value;
+  const cellUsePolygon = document.getElementById('cell-use-polygon')?.checked;
+
+  // Cell queries don't require a polygon if checkbox is unchecked
+  if (polygons.length === 0) {
+    if (queryType !== 'cell' || cellUsePolygon) {
+      alert('Please draw at least one polygon on the map first.');
+      return;
+    }
+    // For cell queries without polygon, check if at least one valid numeric ID is provided
+    const enbListRaw = document.getElementById('enb-list')?.value || '';
+    const ciListRaw = document.getElementById('ci-list')?.value || '';
+    const enbList = enbListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+    const ciList = ciListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+    if (enbList.length === 0 && ciList.length === 0) {
+      alert('Please enter at least one valid numeric eNB ID or Cell ID to search.');
+      return;
+    }
+  }
+
+  if (!isConnected) {
+    alert('Please connect to the database first.');
+    return;
+  }
+
+  // For TAC queries, use existing results
+  if (queryType === 'tac' && lastQueryResults?.data?.length > 0) {
+    localStorage.setItem('sqlBuilderTacData', JSON.stringify(lastQueryResults.data));
+    localStorage.setItem('sqlBuilderTacTimestamp', Date.now().toString());
+    console.log('[SQL Builder] Stored TAC data, opening TAC Detector...');
+    window.open('anomaly-detector.html?source=sqlbuilder', '_blank');
+    return;
+  }
+
+  // For all other cases, fetch fresh data with SELECT query (including lat/lon)
+  console.log('[SQL Builder] Fetching data for Signal Map...');
+
+  const resultsContainer = document.getElementById('results-container');
+  const resultsMeta = document.getElementById('results-meta');
+  document.getElementById('results-section').classList.add('visible');
+  resultsContainer.innerHTML = '<p style="color:var(--sub);padding:20px;text-align:center;">Fetching data for map...</p>';
+
+  try {
+    // Build a SELECT query that always returns lat/lon data
+    const selectSQL = buildSelectQueryForMap();
+    console.log('[SQL Builder] Executing SELECT query for map:', selectSQL);
+
+    const startTime = performance.now();
+    const result = await executeClickHouseQuery(selectSQL);
+    const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+    if (!result || !result.data || result.data.length === 0) {
+      resultsMeta.textContent = `0 rows in ${elapsed}s`;
+      resultsContainer.innerHTML = '<p style="color:var(--orange);padding:20px;text-align:center;">No data found matching your filters.</p>';
+      return;
+    }
+
+    resultsMeta.textContent = `${result.data.length} rows in ${elapsed}s`;
+    displayResults(result);
+
+    const data = result.data;
+    const columns = Object.keys(data[0]);
+    console.log('[SQL Builder] Converting to CSV, columns:', columns);
+
+    // Build CSV string
+    let csv = columns.join(',') + '\n';
+    data.forEach(row => {
+      const values = columns.map(col => {
+        let val = row[col];
+        if (val === null || val === undefined) val = '';
+        if (typeof val === 'object') val = JSON.stringify(val);
+        val = String(val);
+        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+          val = '"' + val.replace(/"/g, '""') + '"';
+        }
+        return val;
+      });
+      csv += values.join(',') + '\n';
+    });
+
+    // Store in localStorage for Signal Map to pick up
+    localStorage.setItem('sqlBuilderData', csv);
+    localStorage.setItem('sqlBuilderTimestamp', Date.now().toString());
+    console.log('[SQL Builder] Stored CSV data:', { rows: data.length, columns });
+
+    window.open('index.html?source=sqlbuilder', '_blank');
+  } catch (err) {
+    console.error('[SQL Builder] Error fetching data:', err);
+    resultsContainer.innerHTML = `<div class="error-msg">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// Build a SELECT query that returns lat/lon data for the map
+function buildSelectQueryForMap() {
+  const queryType = document.getElementById('query-type').value;
+  const tableName = document.getElementById('table-name').value || 'measurements';
+  const geoCol = document.getElementById('geo-col').value || 'location_geo_coordinates';
+  const excludeMcc = document.getElementById('exclude-mcc').checked;
+  const filterMcc = document.getElementById('filter-mcc').value;
+  const includeMcc = document.getElementById('include-mcc').checked;
+  const includeMccValue = document.getElementById('include-mcc-value').value;
+  const useTimeline = document.getElementById('use-timeline').checked;
+  const timestampCol = document.getElementById('timestamp-col').value || 'timestamp';
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  let conditions = [];
+
+  // Add MCC filters
+  if (excludeMcc && filterMcc) {
+    conditions.push(`network_mcc != '${filterMcc}'`);
+  }
+  if (includeMcc && includeMccValue) {
+    conditions.push(`network_mcc = '${includeMccValue}'`);
+  }
+
+  // Add timeline filters
+  if (useTimeline && dateFrom) {
+    conditions.push(`${timestampCol} >= toDateTime('${dateFrom} 00:00:00')`);
+  }
+  if (useTimeline && dateTo) {
+    conditions.push(`${timestampCol} <= toDateTime('${dateTo} 23:59:59')`);
+  }
+
+  // For Cell/eNB search
+  if (queryType === 'cell') {
+    const enbListRaw = document.getElementById('enb-list').value;
+    const ciListRaw = document.getElementById('ci-list').value;
+    const cellUsePolygon = document.getElementById('cell-use-polygon').checked;
+
+    const enbList = enbListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+    const ciList = ciListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+
+    // Cell filters (eNB OR ECI) - combined with OR
+    let cellConditions = [];
+    if (enbList.length > 0) {
+      cellConditions.push(`cell_enb IN (${enbList.join(', ')})`);
+    }
+    if (ciList.length > 0) {
+      cellConditions.push(`cell_eci IN (${ciList.join(', ')})`);
+    }
+    if (cellConditions.length > 0) {
+      conditions.push(`(${cellConditions.join(' OR ')})`);
+    }
+
+    // Add polygon filter if enabled and available
+    if (cellUsePolygon && polygons.length > 0) {
+      const p = polygons[0];
+      const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
+      const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
+      const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
+      conditions.push(condition);
+    }
+
+    let sql = `SELECT
+    cell_enb,
+    cell_eci,
+    cell_ci,
+    network_mcc,
+    network_mnc,
+    network_PLMN,
+    network_operator,
+    count() AS counted,
+    tupleElement(${geoCol}, 1) AS longitude,
+    tupleElement(${geoCol}, 2) AS latitude,
+    min(timestamp) AS timestamp
+FROM ${tableName}
+WHERE
+    ${conditions.join('\n    AND ')}
+GROUP BY
+    cell_enb,
+    cell_eci,
+    cell_ci,
+    network_mcc,
+    network_mnc,
+    network_PLMN,
+    network_operator,
+    longitude,
+    latitude
+ORDER BY
+    cell_enb,
+    counted DESC
+LIMIT 50000`;
+
+    return sql;
+  }
+
+  // Standard SELECT query with polygon
+  const p = polygons[0];
+  const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
+  const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
+  const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
+  conditions.push(condition);
+
+  let sql = `SELECT
+    network_PLMN,
+    network_operator,
+    network_iso,
+    count(network_PLMN) AS counted,
+    tupleElement(${geoCol}, 1) AS longitude,
+    tupleElement(${geoCol}, 2) AS latitude,
+    timestamp
+FROM ${tableName}
+WHERE
+    ${conditions.join('\n    AND ')}
+GROUP BY
+    network_PLMN,
+    network_operator,
+    network_iso,
+    longitude,
+    latitude,
+    timestamp
+LIMIT 50000`;
+
+  return sql;
+}
 
 // ════════════════════════════════════════════════════════════════
 //  MAP INITIALIZATION
@@ -613,8 +1729,6 @@ function initMap() {
       name: name,
       layer: layer,
       coords: coords,
-      mcc: document.getElementById('target-mcc').value || '425',
-      mnc: document.getElementById('target-mnc').value || '01',
       operation: document.getElementById('operation').value
     };
 
@@ -669,7 +1783,7 @@ function updatePolygonList() {
       <div class="name">
         <div class="color-dot" style="background:${p.operation === 'inside' ? '#3b82f6' : '#8b5cf6'}"></div>
         <span>${p.name}</span>
-        <span style="color:var(--muted);font-size:11px">(${p.operation}, MCC:${p.mcc})</span>
+        <span style="color:var(--muted);font-size:11px">(${p.operation})</span>
       </div>
       <div class="actions">
         <button onclick="zoomToPolygon(${p.id})" title="Zoom to polygon">
@@ -713,15 +1827,117 @@ function clearPolygons() {
 //  SQL GENERATION
 // ════════════════════════════════════════════════════════════════
 
+// Generate Cell/eNB Search SQL without polygon requirement
+function generateCellSearchSQL() {
+  const tableName = document.getElementById('table-name').value || 'measurements';
+  const geoCol = document.getElementById('geo-col').value || 'location_geo_coordinates';
+  const excludeMcc = document.getElementById('exclude-mcc').checked;
+  const filterMcc = document.getElementById('filter-mcc').value;
+  const includeMcc = document.getElementById('include-mcc').checked;
+  const includeMccValue = document.getElementById('include-mcc-value').value;
+  const useTimeline = document.getElementById('use-timeline').checked;
+  const timestampCol = document.getElementById('timestamp-col').value || 'timestamp';
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+
+  const enbListRaw = document.getElementById('enb-list').value;
+  const ciListRaw = document.getElementById('ci-list').value;
+
+  // Parse comma-separated lists
+  const enbList = enbListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+  const ciList = ciListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+
+  let sql = '<span class="comment">-- Cell/eNB Search Query</span>\n';
+  sql += `<span class="keyword">SELECT</span>\n`;
+  sql += `    cell_enb,\n`;
+  sql += `    cell_eci,\n`;
+  sql += `    cell_ci,\n`;
+  sql += `    network_mcc,\n`;
+  sql += `    network_mnc,\n`;
+  sql += `    network_PLMN,\n`;
+  sql += `    network_operator,\n`;
+  sql += `    <span class="function">count</span>() <span class="keyword">AS</span> samples,\n`;
+  sql += `    <span class="function">min</span>(timestamp) <span class="keyword">AS</span> first_seen,\n`;
+  sql += `    <span class="function">max</span>(timestamp) <span class="keyword">AS</span> last_seen,\n`;
+  sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">1</span>) <span class="keyword">AS</span> longitude,\n`;
+  sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">2</span>) <span class="keyword">AS</span> latitude\n`;
+  sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+  sql += `<span class="keyword">WHERE</span>\n`;
+
+  let conditions = [];
+
+  // Cell filters (eNB OR ECI) - combined with OR
+  let cellConditions = [];
+  if (enbList.length > 0) {
+    cellConditions.push(`cell_enb <span class="keyword">IN</span> (${enbList.join(', ')})`);
+  }
+  if (ciList.length > 0) {
+    cellConditions.push(`cell_eci <span class="keyword">IN</span> (${ciList.join(', ')})`);
+  }
+  if (cellConditions.length > 0) {
+    conditions.push(`(${cellConditions.join(' <span class="keyword">OR</span> ')})`);
+  }
+
+  // Add MCC filters
+  if (excludeMcc && filterMcc) {
+    conditions.push(`network_mcc != <span class="string">'${filterMcc}'</span>`);
+  }
+  if (includeMcc && includeMccValue) {
+    conditions.push(`network_mcc = <span class="string">'${includeMccValue}'</span>`);
+  }
+
+  // Add timeline filters
+  if (useTimeline && dateFrom) {
+    conditions.push(`${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
+  }
+  if (useTimeline && dateTo) {
+    conditions.push(`${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`);
+  }
+
+  // Must have at least eNB or CI filter
+  if (enbList.length === 0 && ciList.length === 0) {
+    sql += `    <span class="comment">-- Enter eNB IDs or Cell IDs above to generate query</span>\n`;
+    document.getElementById('sql-output').innerHTML = sql;
+    return;
+  }
+
+  sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+  sql += `<span class="keyword">GROUP BY</span>\n`;
+  sql += `    cell_enb,\n`;
+  sql += `    cell_eci,\n`;
+  sql += `    cell_ci,\n`;
+  sql += `    network_mcc,\n`;
+  sql += `    network_mnc,\n`;
+  sql += `    network_PLMN,\n`;
+  sql += `    network_operator,\n`;
+  sql += `    longitude,\n`;
+  sql += `    latitude\n`;
+  sql += `<span class="keyword">ORDER BY</span>\n`;
+  sql += `    cell_enb,\n`;
+  sql += `    samples <span class="keyword">DESC</span>\n`;
+  sql += `<span class="keyword">LIMIT</span> <span class="number">50000</span>;`;
+
+  document.getElementById('sql-output').innerHTML = sql;
+}
+
 function generateSQL() {
-  if (polygons.length === 0) {
+  const queryType = document.getElementById('query-type').value;
+  const cellUsePolygon = document.getElementById('cell-use-polygon')?.checked;
+
+  // Cell queries don't require a polygon if the checkbox is unchecked
+  if (polygons.length === 0 && (queryType !== 'cell' || cellUsePolygon)) {
     document.getElementById('sql-output').innerHTML = '<span class="comment">-- Draw a polygon on the map to generate SQL</span>';
+    return;
+  }
+
+  // For cell queries without polygon, generate SQL directly
+  if (queryType === 'cell' && !cellUsePolygon) {
+    generateCellSearchSQL();
     return;
   }
 
   const tableName = document.getElementById('table-name').value || 'measurements';
   const geoCol = document.getElementById('geo-col').value || 'location_geo_coordinates';
-  const queryType = document.getElementById('query-type').value;
   const excludeMcc = document.getElementById('exclude-mcc').checked;
   const filterMcc = document.getElementById('filter-mcc').value;
   const includeMcc = document.getElementById('include-mcc').checked;
@@ -780,22 +1996,48 @@ function generateSQL() {
       sql += `    latitude,\n`;
       sql += `    timestamp;\n\n`;
 
-    } else {
-      // ALTER UPDATE query for modifying MCC
-      sql += `<span class="keyword">ALTER TABLE</span> ${tableName}\n`;
-      sql += `<span class="keyword">UPDATE</span>\n`;
-      sql += `    network_mcc = <span class="string">'${p.mcc}'</span>`;
-      if (p.mnc) {
-        sql += `,\n    network_mnc = <span class="string">'${p.mnc}'</span>`;
-      }
-      sql += `\n<span class="keyword">WHERE</span>\n`;
+    } else if (queryType === 'tac') {
+      // TAC Anomaly Detection query
+      const minTacChanges = document.getElementById('min-tac-changes').value || '2';
+      const tacLimit = document.getElementById('tac-limit').value || '5000';
+
+      // Get selected technologies
+      const techs = [];
+      if (document.getElementById('tech-lte').checked) techs.push("'LTE'");
+      if (document.getElementById('tech-nr').checked) techs.push("'NR'");
+      if (document.getElementById('tech-wcdma').checked) techs.push("'WCDMA'");
+      if (document.getElementById('tech-gsm').checked) techs.push("'GSM'");
+      if (document.getElementById('tech-cdma').checked) techs.push("'CDMA'");
+
+      sql += `<span class="keyword">SELECT</span>\n`;
+      sql += `    network_mcc,\n`;
+      sql += `    network_mnc,\n`;
+      sql += `    cell_eci,\n`;
+      sql += `    cell_enb,\n`;
+      sql += `    cell_ci,\n`;
+      sql += `    <span class="function">uniqExact</span>(cell_tac) <span class="keyword">AS</span> distinct_tac_count,\n`;
+      sql += `    <span class="function">groupUniqArray</span>(cell_tac) <span class="keyword">AS</span> tac_list,\n`;
+      sql += `    <span class="function">min</span>(timestamp) <span class="keyword">AS</span> first_seen,\n`;
+      sql += `    <span class="function">max</span>(timestamp) <span class="keyword">AS</span> last_seen,\n`;
+      sql += `    <span class="function">count</span>() <span class="keyword">AS</span> total_samples,\n`;
+      sql += `    <span class="function">groupUniqArray</span>(network_operator) <span class="keyword">AS</span> operator_names,\n`;
+      sql += `    <span class="function">groupUniqArray</span>(location_tileId_10) <span class="keyword">AS</span> location_tiles\n`;
+      sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+      sql += `<span class="keyword">WHERE</span>\n`;
 
       let conditions = [];
-      if (excludeMcc && filterMcc) {
-        conditions.push(`network_mcc = <span class="string">'${filterMcc}'</span>`);
+      conditions.push(`cell_eci <span class="keyword">IS NOT NULL</span>`);
+      conditions.push(`cell_tac <span class="keyword">IS NOT NULL</span>`);
+      conditions.push(`network_mcc <span class="keyword">IS NOT NULL</span>`);
+
+      if (techs.length > 0 && techs.length < 5) {
+        conditions.push(`tech <span class="keyword">IN</span> (${techs.join(', ')})`);
       }
       if (includeMcc && includeMccValue) {
         conditions.push(`network_mcc = <span class="string">'${includeMccValue}'</span>`);
+      }
+      if (excludeMcc && filterMcc) {
+        conditions.push(`network_mcc != <span class="string">'${filterMcc}'</span>`);
       }
       if (useTimeline && dateFrom) {
         conditions.push(`${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
@@ -805,7 +2047,101 @@ function generateSQL() {
       }
       conditions.push(`<span class="function">${condition}</span>`);
 
-      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')};\n\n`;
+      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+      sql += `<span class="keyword">GROUP BY</span>\n`;
+      sql += `    network_mcc,\n`;
+      sql += `    network_mnc,\n`;
+      sql += `    cell_eci,\n`;
+      sql += `    cell_enb,\n`;
+      sql += `    cell_ci\n`;
+      sql += `<span class="keyword">HAVING</span>\n`;
+      sql += `    distinct_tac_count > <span class="number">${minTacChanges}</span>\n`;
+      sql += `<span class="keyword">ORDER BY</span>\n`;
+      sql += `    distinct_tac_count <span class="keyword">DESC</span>,\n`;
+      sql += `    total_samples <span class="keyword">DESC</span>\n`;
+      sql += `<span class="keyword">LIMIT</span> <span class="number">${tacLimit}</span>;\n\n`;
+
+    } else if (queryType === 'cell') {
+      // Cell/eNB Search query
+      const enbListRaw = document.getElementById('enb-list').value;
+      const ciListRaw = document.getElementById('ci-list').value;
+      const usePolygon = document.getElementById('cell-use-polygon').checked;
+
+      // Parse comma-separated lists
+      const enbList = enbListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+      const ciList = ciListRaw.split(',').map(s => s.trim()).filter(s => s && /^\d+$/.test(s));
+
+      sql += `<span class="keyword">SELECT</span>\n`;
+      sql += `    cell_enb,\n`;
+      sql += `    cell_eci,\n`;
+      sql += `    cell_ci,\n`;
+      sql += `    network_mcc,\n`;
+      sql += `    network_mnc,\n`;
+      sql += `    network_PLMN,\n`;
+      sql += `    network_operator,\n`;
+      sql += `    <span class="function">count</span>() <span class="keyword">AS</span> samples,\n`;
+      sql += `    <span class="function">min</span>(timestamp) <span class="keyword">AS</span> first_seen,\n`;
+      sql += `    <span class="function">max</span>(timestamp) <span class="keyword">AS</span> last_seen,\n`;
+      sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">1</span>) <span class="keyword">AS</span> longitude,\n`;
+      sql += `    <span class="function">tupleElement</span>(${geoCol}, <span class="number">2</span>) <span class="keyword">AS</span> latitude\n`;
+      sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+      sql += `<span class="keyword">WHERE</span>\n`;
+
+      let conditions = [];
+
+      // Cell filters (eNB OR ECI) - combined with OR
+      let cellConditions = [];
+      if (enbList.length > 0) {
+        cellConditions.push(`cell_enb <span class="keyword">IN</span> (${enbList.join(', ')})`);
+      }
+      if (ciList.length > 0) {
+        cellConditions.push(`cell_eci <span class="keyword">IN</span> (${ciList.join(', ')})`);
+      }
+      if (cellConditions.length > 0) {
+        conditions.push(`(${cellConditions.join(' <span class="keyword">OR</span> ')})`);
+      }
+
+      // Add MCC filters
+      if (excludeMcc && filterMcc) {
+        conditions.push(`network_mcc != <span class="string">'${filterMcc}'</span>`);
+      }
+      if (includeMcc && includeMccValue) {
+        conditions.push(`network_mcc = <span class="string">'${includeMccValue}'</span>`);
+      }
+
+      // Add timeline filters
+      if (useTimeline && dateFrom) {
+        conditions.push(`${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
+      }
+      if (useTimeline && dateTo) {
+        conditions.push(`${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`);
+      }
+
+      // Add polygon filter if enabled
+      if (usePolygon) {
+        conditions.push(`<span class="function">${condition}</span>`);
+      }
+
+      // Must have at least eNB or CI filter
+      if (enbList.length === 0 && ciList.length === 0) {
+        conditions.push(`<span class="comment">-- Enter eNB IDs or Cell IDs above</span>`);
+      }
+
+      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+      sql += `<span class="keyword">GROUP BY</span>\n`;
+      sql += `    cell_enb,\n`;
+      sql += `    cell_eci,\n`;
+      sql += `    cell_ci,\n`;
+      sql += `    network_mcc,\n`;
+      sql += `    network_mnc,\n`;
+      sql += `    network_PLMN,\n`;
+      sql += `    network_operator,\n`;
+      sql += `    longitude,\n`;
+      sql += `    latitude\n`;
+      sql += `<span class="keyword">ORDER BY</span>\n`;
+      sql += `    cell_enb,\n`;
+      sql += `    samples <span class="keyword">DESC</span>\n`;
+      sql += `<span class="keyword">LIMIT</span> <span class="number">50000</span>;\n\n`;
     }
   });
 
@@ -822,7 +2158,11 @@ function generateSQL() {
     sql += `<span class="keyword">WHERE</span> <span class="function">${condition}</span>`;
 
     if (excludeMcc && filterMcc) {
-      sql += `\n    <span class="keyword">AND</span> network_mcc ${queryType === 'select' ? '!=' : '='} <span class="string">'${filterMcc}'</span>`;
+      // Always use != for "Exclude MCC" - find signals that are NOT this MCC
+      sql += `\n    <span class="keyword">AND</span> network_mcc != <span class="string">'${filterMcc}'</span>`;
+    }
+    if (includeMcc && includeMccValue) {
+      sql += `\n    <span class="keyword">AND</span> network_mcc = <span class="string">'${includeMccValue}'</span>`;
     }
     if (useTimeline && dateFrom) {
       sql += `\n    <span class="keyword">AND</span> ${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`;
@@ -863,12 +2203,62 @@ function updateStats() {
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   updatePolygonList();
+  loadCredentials();
+  populateMccDropdowns();
+
+  // Set initial button text
+  document.getElementById('view-btn-text').textContent = 'View on Signal Map';
 
   // Re-generate SQL when settings change
   ['table-name', 'geo-col', 'filter-mcc', 'include-mcc-value', 'timestamp-col'].forEach(id => {
     document.getElementById(id).addEventListener('input', generateSQL);
   });
-  ['query-type', 'date-from', 'date-to'].forEach(id => {
+  document.getElementById('query-type').addEventListener('change', generateSQL);
+
+  // Auto-enable timeline filter when dates are entered
+  ['date-from', 'date-to'].forEach(id => {
+    document.getElementById(id).addEventListener('change', (e) => {
+      if (e.target.value) {
+        document.getElementById('use-timeline').checked = true;
+      }
+      generateSQL();
+    });
+  });
+
+  // Show/hide options based on query type and update button text
+  document.getElementById('query-type').addEventListener('change', (e) => {
+    const tacOptions = document.getElementById('tac-options');
+    const cellOptions = document.getElementById('cell-options');
+    const viewBtnText = document.getElementById('view-btn-text');
+    const viewMapBtn = document.getElementById('view-map-btn');
+    const queryType = e.target.value;
+
+    // Show/hide query-specific options
+    tacOptions.style.display = queryType === 'tac' ? 'block' : 'none';
+    cellOptions.style.display = queryType === 'cell' ? 'block' : 'none';
+
+    // Always show the button, update text based on query type
+    viewMapBtn.style.display = '';
+    if (queryType === 'select' || queryType === 'cell') {
+      viewBtnText.textContent = 'View on Signal Map';
+      viewMapBtn.style.background = 'var(--cyan)';
+    } else if (queryType === 'tac') {
+      viewBtnText.textContent = 'View on TAC Detector';
+      viewMapBtn.style.background = 'var(--cyan)';
+    }
+  });
+
+  // Cell search inputs trigger SQL regeneration
+  ['enb-list', 'ci-list'].forEach(id => {
+    document.getElementById(id).addEventListener('input', generateSQL);
+  });
+  document.getElementById('cell-use-polygon').addEventListener('change', generateSQL);
+
+  // TAC-specific inputs
+  ['min-tac-changes', 'tac-limit'].forEach(id => {
+    document.getElementById(id).addEventListener('input', generateSQL);
+  });
+  ['tech-lte', 'tech-nr', 'tech-wcdma', 'tech-gsm', 'tech-cdma'].forEach(id => {
     document.getElementById(id).addEventListener('change', generateSQL);
   });
   ['exclude-mcc', 'include-mcc', 'use-timeline'].forEach(id => {

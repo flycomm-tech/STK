@@ -465,6 +465,7 @@
                         <th>TAC Jumps</th>
                         <th>Samples</th>
                         <th>First Seen</th>
+                        <th>Last Seen</th>
                     </tr>
                 </thead>
                 <tbody id="table-tbody"></tbody>
@@ -522,6 +523,42 @@
         const file = e.dataTransfer.files[0];
         if (file && file.name.endsWith('.json')) loadJSON(file);
     });
+
+    // Check for data from SQL Builder
+    function checkSQLBuilderData() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('source') !== 'sqlbuilder') return;
+
+        const tacData = localStorage.getItem('sqlBuilderTacData');
+        const timestamp = localStorage.getItem('sqlBuilderTacTimestamp');
+
+        console.log('TAC Detector: SQL Builder data check', { hasData: !!tacData, timestamp });
+
+        if (!tacData) {
+            console.warn('No SQL Builder TAC data found in localStorage');
+            return;
+        }
+
+        // Clear the stored data after reading
+        localStorage.removeItem('sqlBuilderTacData');
+        localStorage.removeItem('sqlBuilderTacTimestamp');
+
+        // Remove query parameter from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        try {
+            const data = JSON.parse(tacData);
+            console.log('TAC Detector: Loaded', data.length, 'records from SQL Builder');
+            processData(data);
+            initUI();
+        } catch (err) {
+            console.error('Error loading SQL Builder data:', err);
+            alert('Error loading SQL Builder data: ' + err.message);
+        }
+    }
+
+    // Check for SQL Builder data on page load
+    checkSQLBuilderData();
 
     function loadJSON(file) {
         const reader = new FileReader();
@@ -690,7 +727,7 @@
         tableTbody.innerHTML = '';
 
         if (filtered.length === 0) {
-            tableTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-dim)">No matching data found</td></tr>';
+            tableTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-dim)">No matching data found</td></tr>';
             return;
         }
 
@@ -718,6 +755,7 @@
                     <div><span class="label">TAC Jumps:</span> <span class="val-red">${item.distinct_tac_count}</span></div>
                     <div><span class="label">Samples:</span> ${item.total_samples.toLocaleString()}</div>
                     <div><span class="label">First seen:</span> ${(item.first_seen || '').substring(0, 10)}</div>
+                    <div><span class="label">Last seen:</span> ${(item.last_seen || '').substring(0, 10)}</div>
                 </div>
                 <div class="popup-intel">
                     <div class="popup-intel-title">
@@ -739,6 +777,7 @@
                 <td><span class="severity-badge ${risk.cls}">${item.distinct_tac_count}</span></td>
                 <td>${item.total_samples.toLocaleString()}</td>
                 <td style="font-size:0.75rem">${(item.first_seen || '').substring(0, 10)}</td>
+                <td style="font-size:0.75rem">${(item.last_seen || '').substring(0, 10)}</td>
             `;
             tr.onclick = () => {
                 map.setView([item.lat, item.lon], 14);

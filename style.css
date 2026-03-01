@@ -59,6 +59,7 @@ body {
 #upload-status { font-size: 10px; margin-top: 5px; display: none; padding: 2px 4px; border-radius: 4px; }
 .status-loading { color: var(--yellow); }
 .status-error   { color: var(--red); }
+.status-success { color: var(--green); }
 
 #sb-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
 #sb-body::-webkit-scrollbar { width: 4px; }
