@@ -446,26 +446,36 @@ function buildDots(data) {
       const centerLat = site.lats.reduce((a, b) => a + b, 0) / site.lats.length;
       const centerLon = site.lons.reduce((a, b) => a + b, 0) / site.lons.length;
 
-      // Create eNB site marker (antenna icon)
+      // Cell tower SVG icon
+      const towerSvg = `
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L12 22" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M8 6L12 2L16 6" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M6 10L12 4L18 10" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 14L12 6L20 14" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="12" cy="2" r="2" fill="#ef4444"/>
+          <path d="M9 22H15" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        </svg>`;
+
+      // Create eNB site marker (cell tower icon)
       const siteMarker = L.marker([centerLat, centerLon], {
         icon: L.divIcon({
           className: 'enb-site-marker',
           html: `<div style="
-            background: #1e293b;
+            background: rgba(15, 23, 42, 0.9);
             border: 2px solid #3b82f6;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            border-radius: 8px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            color: #3b82f6;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-          ">📡</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        })
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+          ">${towerSvg}</div>`,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        }),
+        zIndexOffset: 1000
       });
 
       // Build sector info for tooltip
@@ -477,7 +487,7 @@ function buildDots(data) {
 
       siteMarker.bindTooltip(`
         <div style="font-family:monospace;font-size:11px;">
-          <b>📡 Site eNB: ${enbId}</b><br>
+          <b>🗼 Site eNB: ${enbId}</b><br>
           <b>📍 GPS:</b> ${centerLat.toFixed(6)}, ${centerLon.toFixed(6)}<br>
           <b>📊 Samples:</b> ${site.samples}<br>
           <hr style="margin:4px 0;border-color:#334155">
@@ -485,25 +495,50 @@ function buildDots(data) {
         </div>
       `, { permanent: false, direction: 'top' });
 
-      // Draw sector direction indicators (wedges)
+      // Draw sector direction arrows (much larger and visible)
       const sectorColors = ['#3b82f6', '#22c55e', '#f59e0b'];
       const sectorAngles = [270, 30, 150];  // N, NE, SE (in degrees, 0 = East)
 
       Object.keys(site.sectors).forEach(sId => {
         const angle = sectorAngles[sId] || 0;
-        const radius = 0.0003;  // ~30m at equator
+        const radius = 0.0015;  // ~150m - much more visible
+        const angleRad = angle * Math.PI / 180;
 
-        // Create a simple line indicator for sector direction
-        const endLat = centerLat + radius * Math.sin(angle * Math.PI / 180);
-        const endLon = centerLon + radius * Math.cos(angle * Math.PI / 180);
+        // Arrow endpoint
+        const endLat = centerLat + radius * Math.sin(angleRad);
+        const endLon = centerLon + radius * Math.cos(angleRad);
 
+        // Arrow head points (30 degree spread)
+        const arrowSize = radius * 0.3;
+        const arrowAngle1 = (angle + 150) * Math.PI / 180;
+        const arrowAngle2 = (angle - 150) * Math.PI / 180;
+
+        const arrowLat1 = endLat + arrowSize * Math.sin(arrowAngle1);
+        const arrowLon1 = endLon + arrowSize * Math.cos(arrowAngle1);
+        const arrowLat2 = endLat + arrowSize * Math.sin(arrowAngle2);
+        const arrowLon2 = endLon + arrowSize * Math.cos(arrowAngle2);
+
+        const color = sectorColors[sId] || '#888';
+
+        // Main arrow line
         const sectorLine = L.polyline([[centerLat, centerLon], [endLat, endLon]], {
-          color: sectorColors[sId] || '#888',
-          weight: 3,
-          opacity: 0.8,
-          dashArray: '5, 5'
+          color: color,
+          weight: 4,
+          opacity: 0.9
         });
         dotLayer.addLayer(sectorLine);
+
+        // Arrow head
+        const arrowHead = L.polyline([
+          [arrowLat1, arrowLon1],
+          [endLat, endLon],
+          [arrowLat2, arrowLon2]
+        ], {
+          color: color,
+          weight: 4,
+          opacity: 0.9
+        });
+        dotLayer.addLayer(arrowHead);
       });
 
       dotLayer.addLayer(siteMarker);
