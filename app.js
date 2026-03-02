@@ -349,15 +349,22 @@ function buildTowerMarkers(data) {
 
   if (Object.keys(enbSites).length === 0) return;
 
-  // Cell tower SVG icon
+  // Cell tower SVG icon - classic lattice tower design
   const towerSvg = `
-    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 2L12 22" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M8 6L12 2L16 6" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M6 10L12 4L18 10" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M4 14L12 6L20 14" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="12" cy="2" r="2" fill="#ef4444"/>
-      <path d="M9 22H15" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Tower legs -->
+      <path d="M12 4L7 22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+      <path d="M12 4L17 22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+      <!-- Cross beams -->
+      <path d="M8.5 10L15.5 10" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M8 14L16 14" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M7.5 18L16.5 18" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- Antenna top -->
+      <path d="M12 1L12 6" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="12" cy="1" r="1.5" fill="#ef4444"/>
+      <!-- Signal waves -->
+      <path d="M6 5C7.5 3.5 9.5 2.5 12 2.5" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+      <path d="M18 5C16.5 3.5 14.5 2.5 12 2.5" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
     </svg>`;
 
   Object.entries(enbSites).forEach(([enbId, site]) => {
