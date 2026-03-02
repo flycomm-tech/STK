@@ -39,6 +39,12 @@ const FIELDS = [
   { key:'timestamp', label:'Timestamp',   required:false },
   { key:'cell_enb',  label:'eNB ID',      required:false },
   { key:'cell_eci',  label:'Cell ID/ECI', required:false },
+  { key:'anomaly_score', label:'Anomaly Score', required:false },
+  { key:'risk_level', label:'Risk Level', required:false },
+  { key:'avg_rsrp',  label:'Avg RSRP',    required:false },
+  { key:'coverage_level', label:'Coverage Level', required:false },
+  { key:'coverage_color', label:'Coverage Color', required:false },
+  { key:'coverage_score', label:'Coverage Score', required:false },
 ];
 
 const TABLE_MAX = 500;
@@ -158,10 +164,19 @@ function checkSQLBuilderData() {
     return;
   }
 
+  // Check if this is ML coverage mode
+  const isMLCoverage = urlParams.get('ml') === 'coverage' || localStorage.getItem('mlCoverageMode') === 'true';
+  if (isMLCoverage) {
+    APP.mlCoverageMode = true;
+    localStorage.removeItem('mlCoverageMode');
+    console.log('[Signal Map] ML Coverage mode enabled');
+  }
+
   console.log('[Signal Map] Loading data from SQL Builder...');
 
   // Show loading state immediately
-  setStatus('⏳ Loading data from SQL Builder...', 'loading');
+  const statusMsg = isMLCoverage ? '🧠 Loading ML Coverage predictions...' : '⏳ Loading data from SQL Builder...';
+  setStatus(statusMsg, 'loading');
 
   const csvData = localStorage.getItem('sqlBuilderData');
   const timestamp = localStorage.getItem('sqlBuilderTimestamp');
@@ -212,6 +227,12 @@ function checkSQLBuilderData() {
     if (detected.timestamp) colMap.timestamp = detected.timestamp;
     if (detected.cell_enb) colMap.cell_enb = detected.cell_enb;
     if (detected.cell_eci) colMap.cell_eci = detected.cell_eci;
+    if (detected.anomaly_score) colMap.anomaly_score = detected.anomaly_score;
+    if (detected.risk_level) colMap.risk_level = detected.risk_level;
+    if (detected.avg_rsrp) colMap.avg_rsrp = detected.avg_rsrp;
+    if (detected.coverage_level) colMap.coverage_level = detected.coverage_level;
+    if (detected.coverage_color) colMap.coverage_color = detected.coverage_color;
+    if (detected.coverage_score) colMap.coverage_score = detected.coverage_score;
 
     console.log('[Signal Map] Column map:', colMap);
 
@@ -266,8 +287,14 @@ function clearLayers() {
 function buildHeat(data) {
   clearLayers();
   if (!data.length) return;
+
+  // In ML coverage mode, use coverage score as intensity (higher = better coverage)
+  const heatData = APP.mlCoverageMode
+    ? data.map(([lat, lon, cnt, , , , , , , anomalyScore, , , , , coverageScore]) => [lat, lon, coverageScore || anomalyScore || cnt])
+    : data.map(([lat, lon, cnt]) => [lat, lon, cnt]);
+
   heatLayer = L.heatLayer(
-    data.map(([lat, lon, cnt]) => [lat, lon, cnt]),
+    heatData,
     {
       radius:     14,
       blur:       18,
@@ -290,20 +317,72 @@ function buildDots(data) {
   if (!data.length) return;
   dotLayer = L.layerGroup();
 
-  data.forEach(([lat, lon, cnt, oi, pi, ii, ts, enb, eci]) => {
+  // In ML coverage mode, also build eNB site markers and sector indicators
+  const enbSites = {};  // Group by eNB to find site locations
+
+  data.forEach(([lat, lon, cnt, oi, pi, ii, ts, enb, eci, anomalyScore, riskLevel, avgRsrp, coverageLevel, coverageColor, coverageScore]) => {
     const op    = APP.operators[oi] || '';
     const plmn  = APP.plmns[pi]     || '';
     const iso   = APP.isos[ii]      || '';
-    const color = APP.colors[oi]    || '#888';
     const tsStr = ts ? new Date(ts).toLocaleString() : '—';
+
+    // Use coverage-based colors in ML coverage mode
+    let color;
+    if (APP.mlCoverageMode && coverageColor) {
+      color = coverageColor;
+    } else if (APP.mlCoverageMode && riskLevel) {
+      color = riskLevel === 'high' ? '#ef4444' : (riskLevel === 'medium' ? '#f59e0b' : '#10b981');
+    } else {
+      color = APP.colors[oi] || '#888';
+    }
+
+    // Track eNB sites for site markers (in coverage mode)
+    if (APP.mlCoverageMode && enb) {
+      if (!enbSites[enb]) {
+        enbSites[enb] = { lats: [], lons: [], sectors: {}, samples: 0 };
+      }
+      enbSites[enb].lats.push(lat);
+      enbSites[enb].lons.push(lon);
+      enbSites[enb].samples += cnt;
+
+      // Track sectors (CI mod 256 gives sector, typically 0-2 for 3-sector sites)
+      const ci = eci ? (parseInt(eci) % 256) : 0;
+      const sectorId = ci % 3;  // Assume 3-sector site
+      if (!enbSites[enb].sectors[sectorId]) {
+        enbSites[enb].sectors[sectorId] = { ci: eci, rsrp: [], count: 0 };
+      }
+      enbSites[enb].sectors[sectorId].count++;
+      if (avgRsrp) enbSites[enb].sectors[sectorId].rsrp.push(avgRsrp);
+    }
 
     const marker = L.circleMarker([lat, lon], {
       renderer:    canvasRend,
-      radius:      5,
+      radius:      APP.mlCoverageMode ? 6 : 5,
       color,       weight: 1.2,
       fillColor:   color,
       fillOpacity: 0.8,
     });
+
+    // Build hover tooltip for quick info (RSRP, eNB, sector)
+    if (APP.mlCoverageMode) {
+      const ci = eci ? (parseInt(eci) % 256) % 3 : '?';
+      const sectorArrows = ['↑', '↗', '↘'];  // N, NE, SE for sectors 0,1,2
+      const rsrpStr = avgRsrp ? `${avgRsrp.toFixed(0)} dBm` : 'N/A';
+      const tooltipContent = `
+        <div style="font-family:monospace;font-size:11px;line-height:1.4;">
+          <b>📡 eNB:</b> ${enb || '?'}<br>
+          <b>📶 Sector:</b> ${sectorArrows[ci] || '?'} (CI: ${eci || '?'})<br>
+          <b>📊 RSRP:</b> <span style="color:${color};font-weight:bold">${rsrpStr}</span><br>
+          <b>📍 GPS:</b> ${lat.toFixed(6)}, ${lon.toFixed(6)}
+        </div>
+      `;
+      marker.bindTooltip(tooltipContent, {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -5],
+        className: 'coverage-tooltip'
+      });
+    }
 
     // Build popup via DOM (safe from injection)
     const inner = document.createElement('div');
@@ -318,16 +397,28 @@ function buildDots(data) {
     const tbl = document.createElement('table');
     tbl.className = 'popup-table';
 
-    // Build rows dynamically - only show cell fields if they have values
     const rows = [
       ['Operator', op   || '—', !op],
       ['PLMN',     plmn || '—', !plmn],
       ['ISO',      iso  || '—', !iso],
     ];
 
-    // Add cell info if available (from Cell/eNB Search)
     if (enb) rows.push(['eNB', String(enb), false]);
     if (eci) rows.push(['ECI', String(eci), false]);
+
+    if (APP.mlCoverageMode && (coverageLevel || riskLevel)) {
+      if (coverageLevel) {
+        const levelIcons = { 'excellent': '🟢', 'good': '🟢', 'fair': '🟡', 'poor': '🟠', 'bad': '🔴' };
+        const icon = levelIcons[coverageLevel] || '⚪';
+        rows.push(['Coverage', `${icon} ${coverageLevel.toUpperCase()}`, false]);
+        if (avgRsrp) rows.push(['RSRP', `${avgRsrp.toFixed(1)} dBm`, false]);
+        if (coverageScore !== undefined) rows.push(['Score', String(coverageScore), false]);
+      } else if (riskLevel) {
+        const riskIcon = riskLevel === 'high' ? '🔴' : (riskLevel === 'medium' ? '🟠' : '🟢');
+        rows.push(['Risk', `${riskIcon} ${riskLevel.toUpperCase()}`, false]);
+        rows.push(['Score', String(anomalyScore), false]);
+      }
+    }
 
     rows.push(
       ['Count',    String(cnt), false],
@@ -347,6 +438,77 @@ function buildDots(data) {
     marker.bindPopup(inner, { maxWidth: 230 });
     dotLayer.addLayer(marker);
   });
+
+  // Add eNB site markers with sector directions (in coverage mode)
+  if (APP.mlCoverageMode && Object.keys(enbSites).length > 0) {
+    Object.entries(enbSites).forEach(([enbId, site]) => {
+      // Calculate site center (average of all measurement points)
+      const centerLat = site.lats.reduce((a, b) => a + b, 0) / site.lats.length;
+      const centerLon = site.lons.reduce((a, b) => a + b, 0) / site.lons.length;
+
+      // Create eNB site marker (antenna icon)
+      const siteMarker = L.marker([centerLat, centerLon], {
+        icon: L.divIcon({
+          className: 'enb-site-marker',
+          html: `<div style="
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #3b82f6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          ">📡</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        })
+      });
+
+      // Build sector info for tooltip
+      const sectorInfo = Object.entries(site.sectors).map(([sId, sec]) => {
+        const avgRsrp = sec.rsrp.length ? (sec.rsrp.reduce((a,b) => a+b, 0) / sec.rsrp.length).toFixed(0) : 'N/A';
+        const arrows = ['↑ N', '↗ NE', '↘ SE'];
+        return `${arrows[sId] || sId}: ${avgRsrp} dBm (${sec.count} pts)`;
+      }).join('<br>');
+
+      siteMarker.bindTooltip(`
+        <div style="font-family:monospace;font-size:11px;">
+          <b>📡 Site eNB: ${enbId}</b><br>
+          <b>📍 GPS:</b> ${centerLat.toFixed(6)}, ${centerLon.toFixed(6)}<br>
+          <b>📊 Samples:</b> ${site.samples}<br>
+          <hr style="margin:4px 0;border-color:#334155">
+          <b>Sectors:</b><br>${sectorInfo}
+        </div>
+      `, { permanent: false, direction: 'top' });
+
+      // Draw sector direction indicators (wedges)
+      const sectorColors = ['#3b82f6', '#22c55e', '#f59e0b'];
+      const sectorAngles = [270, 30, 150];  // N, NE, SE (in degrees, 0 = East)
+
+      Object.keys(site.sectors).forEach(sId => {
+        const angle = sectorAngles[sId] || 0;
+        const radius = 0.0003;  // ~30m at equator
+
+        // Create a simple line indicator for sector direction
+        const endLat = centerLat + radius * Math.sin(angle * Math.PI / 180);
+        const endLon = centerLon + radius * Math.cos(angle * Math.PI / 180);
+
+        const sectorLine = L.polyline([[centerLat, centerLon], [endLat, endLon]], {
+          color: sectorColors[sId] || '#888',
+          weight: 3,
+          opacity: 0.8,
+          dashArray: '5, 5'
+        });
+        dotLayer.addLayer(sectorLine);
+      });
+
+      dotLayer.addLayer(siteMarker);
+    });
+  }
 
   dotLayer.addTo(map);
 }
@@ -1200,6 +1362,12 @@ function detectColumns(headers) {
     timestamp: find('timestamp', 'time', 'date', 'datetime', 'ts', 'first_seen'),
     cell_enb:  find('cell_enb', 'enb', 'enodeb'),
     cell_eci:  find('cell_eci', 'eci', 'ecgi', 'cell_id'),
+    anomaly_score: find('anomaly_score', 'score'),
+    risk_level: find('risk_level', 'risk'),
+    avg_rsrp:  find('avg_rsrp', 'rsrp', 'signal_rsrp'),
+    coverage_level: find('coverage_level'),
+    coverage_color: find('coverage_color'),
+    coverage_score: find('coverage_score'),
   };
 }
 
@@ -1319,6 +1487,12 @@ function _processData(rows, colMap, filename) {
       const tsRaw = colMap.timestamp ? (row[colMap.timestamp]  || '')        : '';
       const enb   = colMap.cell_enb  ? (row[colMap.cell_enb]   || '')        : '';
       const eci   = colMap.cell_eci  ? (row[colMap.cell_eci]   || '')        : '';
+      const anomalyScore = colMap.anomaly_score ? (parseInt(row[colMap.anomaly_score]) || 0) : 0;
+      const riskLevel = colMap.risk_level ? (row[colMap.risk_level] || '') : '';
+      const avgRsrp = colMap.avg_rsrp ? (parseFloat(row[colMap.avg_rsrp]) || null) : null;
+      const coverageLevel = colMap.coverage_level ? (row[colMap.coverage_level] || '') : '';
+      const coverageColor = colMap.coverage_color ? (row[colMap.coverage_color] || '') : '';
+      const coverageScore = colMap.coverage_score ? (parseInt(row[colMap.coverage_score]) || 0) : 0;
 
       let ts = null;
       if (tsRaw) {
@@ -1338,7 +1512,7 @@ function _processData(rows, colMap, filename) {
         if (!(val in lookup)) { lookup[val] = list.length; list.push(val); }
       }
 
-      points.push([lat, lon, cnt, opIdx[op], plmnIdx[plmn], isoIdx[iso], ts, enb, eci]);
+      points.push([lat, lon, cnt, opIdx[op], plmnIdx[plmn], isoIdx[iso], ts, enb, eci, anomalyScore, riskLevel, avgRsrp, coverageLevel, coverageColor, coverageScore]);
     } catch (_) { /* skip bad row */ }
   });
 

@@ -417,3 +417,29 @@ input[type="date"]:focus { border-color: var(--mauve); }
 .nav-link:hover {
   background: rgba(137,180,250,.18); border-color: var(--blue);
 }
+
+/* ── COVERAGE TOOLTIP ────────────────────────────────────────── */
+.coverage-tooltip {
+  background: rgba(17, 17, 27, 0.95) !important;
+  border: 1px solid var(--surface1) !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  color: var(--text) !important;
+}
+.coverage-tooltip::before {
+  border-top-color: rgba(17, 17, 27, 0.95) !important;
+}
+
+.enb-site-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Leaflet tooltip arrow fix */
+.leaflet-tooltip-top:before {
+  border-top-color: rgba(17, 17, 27, 0.95);
+}
+.leaflet-tooltip-bottom:before {
+  border-bottom-color: rgba(17, 17, 27, 0.95);
+}
