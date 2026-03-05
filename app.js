@@ -326,6 +326,17 @@ function buildTowerMarkers(data) {
 
   towerLayer = L.layerGroup();
 
+  // Debug: log data bounds
+  const lats = data.map(d => d[0]).filter(v => !isNaN(v));
+  const lons = data.map(d => d[1]).filter(v => !isNaN(v));
+  console.log('[Tower Markers] Data bounds:', {
+    latMin: Math.min(...lats).toFixed(4),
+    latMax: Math.max(...lats).toFixed(4),
+    lonMin: Math.min(...lons).toFixed(4),
+    lonMax: Math.max(...lons).toFixed(4),
+    totalPoints: data.length
+  });
+
   // Group data by eNB to find site locations
   const enbSites = {};
   data.forEach(([lat, lon, cnt, , , , , enb, eci, , , avgRsrp]) => {
@@ -349,28 +360,33 @@ function buildTowerMarkers(data) {
 
   if (Object.keys(enbSites).length === 0) return;
 
-  // Cell tower SVG icon - classic lattice tower design
+  // Cell tower SVG icon - radio tower with signal waves
   const towerSvg = `
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- Tower legs -->
-      <path d="M12 4L7 22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
-      <path d="M12 4L17 22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
-      <!-- Cross beams -->
-      <path d="M8.5 10L15.5 10" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M8 14L16 14" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M7.5 18L16.5 18" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/>
-      <!-- Antenna top -->
-      <path d="M12 1L12 6" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="12" cy="1" r="1.5" fill="#ef4444"/>
+    <svg viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
       <!-- Signal waves -->
-      <path d="M6 5C7.5 3.5 9.5 2.5 12 2.5" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
-      <path d="M18 5C16.5 3.5 14.5 2.5 12 2.5" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
+      <path d="M10 4C12 2 14.5 1 16 1C17.5 1 20 2 22 4" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M11.5 6C13 4.5 14.5 4 16 4C17.5 4 19 4.5 20.5 6" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <path d="M13 8C14 7 15 6.5 16 6.5C17 6.5 18 7 19 8" stroke="#3b82f6" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <!-- Antenna mast -->
+      <line x1="16" y1="8" x2="16" y2="12" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
+      <!-- Tower body - triangular lattice -->
+      <path d="M16 12L10 30" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
+      <path d="M16 12L22 30" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
+      <!-- Cross beams -->
+      <line x1="11.5" y1="18" x2="20.5" y2="18" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="10.5" y1="24" x2="21.5" y2="24" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+      <!-- Base -->
+      <line x1="8" y1="30" x2="24" y2="30" stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
     </svg>`;
+
+  console.log('[Tower Markers] Building', Object.keys(enbSites).length, 'tower markers');
 
   Object.entries(enbSites).forEach(([enbId, site]) => {
     // Calculate site center
     const centerLat = site.lats.reduce((a, b) => a + b, 0) / site.lats.length;
     const centerLon = site.lons.reduce((a, b) => a + b, 0) / site.lons.length;
+
+    console.log(`[Tower] eNB ${enbId}: lat=${centerLat.toFixed(4)}, lon=${centerLon.toFixed(4)}, samples=${site.samples}, points=${site.lats.length}`);
 
     // Create tower marker
     const siteMarker = L.marker([centerLat, centerLon], {
@@ -410,44 +426,149 @@ function buildTowerMarkers(data) {
       </div>
     `, { permanent: false, direction: 'top' });
 
-    // Draw sector direction arrows
-    const sectorColors = ['#3b82f6', '#22c55e', '#f59e0b'];
+    // Draw bold sector arrows (like in reference image)
+    const sectorColors = ['#e2e8f0', '#e2e8f0', '#e2e8f0'];  // Light gray arrows
     const sectorAngles = [270, 30, 150];  // N, NE, SE
 
     Object.keys(site.sectors).forEach(sId => {
       const angle = sectorAngles[sId] || 0;
-      const radius = 0.0015;  // ~150m
+      const radius = 0.002;  // ~200m for visibility
       const angleRad = angle * Math.PI / 180;
 
       const endLat = centerLat + radius * Math.sin(angleRad);
       const endLon = centerLon + radius * Math.cos(angleRad);
 
-      const arrowSize = radius * 0.3;
-      const arrowAngle1 = (angle + 150) * Math.PI / 180;
-      const arrowAngle2 = (angle - 150) * Math.PI / 180;
+      // Bold arrow head (filled triangle)
+      const arrowSize = radius * 0.4;
+      const arrowAngle1 = (angle + 160) * Math.PI / 180;
+      const arrowAngle2 = (angle - 160) * Math.PI / 180;
 
       const arrowLat1 = endLat + arrowSize * Math.sin(arrowAngle1);
       const arrowLon1 = endLon + arrowSize * Math.cos(arrowAngle1);
       const arrowLat2 = endLat + arrowSize * Math.sin(arrowAngle2);
       const arrowLon2 = endLon + arrowSize * Math.cos(arrowAngle2);
 
-      const color = sectorColors[sId] || '#888';
+      const color = sectorColors[sId] || '#e2e8f0';
 
-      // Main arrow line
+      // Main arrow shaft
       towerLayer.addLayer(L.polyline([[centerLat, centerLon], [endLat, endLon]], {
-        color, weight: 4, opacity: 0.9
+        color, weight: 5, opacity: 1
       }));
 
-      // Arrow head
-      towerLayer.addLayer(L.polyline([
+      // Bold filled arrow head (polygon)
+      towerLayer.addLayer(L.polygon([
         [arrowLat1, arrowLon1], [endLat, endLon], [arrowLat2, arrowLon2]
-      ], { color, weight: 4, opacity: 0.9 }));
+      ], { color, fillColor: color, fillOpacity: 1, weight: 2, opacity: 1 }));
+    });
+
+    // Add click handler to show only this tower's data
+    siteMarker.on('click', function() {
+      filterByTower(enbId);
     });
 
     towerLayer.addLayer(siteMarker);
   });
 
   towerLayer.addTo(map);
+}
+
+// Filter to show only a specific tower's data
+let selectedTowerEnb = null;
+
+function filterByTower(enbId) {
+  if (selectedTowerEnb === enbId) {
+    // Click again to clear filter
+    selectedTowerEnb = null;
+    setStatus(`Showing all ${APP.filtered.length} points`, 'success');
+    render();
+    return;
+  }
+
+  selectedTowerEnb = enbId;
+
+  // Filter data to only this tower's points
+  const towerData = APP.filtered.filter(([, , , , , , , enb]) => enb === enbId);
+
+  if (towerData.length === 0) {
+    setStatus(`No data for eNB ${enbId}`, 'error');
+    return;
+  }
+
+  setStatus(`🗼 eNB ${enbId}: ${towerData.length} points (click tower again to clear)`, 'success');
+
+  // Rebuild view with filtered data
+  if (viewMode === 'heat') {
+    buildHeatFiltered(towerData);
+  } else {
+    buildDotsFiltered(towerData);
+  }
+
+  // Fit map to this tower's data
+  const lats = towerData.map(d => d[0]);
+  const lons = towerData.map(d => d[1]);
+  map.fitBounds([
+    [Math.min(...lats), Math.min(...lons)],
+    [Math.max(...lats), Math.max(...lons)]
+  ], { padding: [50, 50], maxZoom: 16 });
+}
+
+function buildHeatFiltered(data) {
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  if (dotLayer) { map.removeLayer(dotLayer); dotLayer = null; }
+
+  const heatData = APP.mlCoverageMode
+    ? data.map(([lat, lon, cnt, , , , , , , anomalyScore, , , , , coverageScore]) => [lat, lon, coverageScore || anomalyScore || cnt])
+    : data.map(([lat, lon, cnt]) => [lat, lon, cnt]);
+
+  heatLayer = L.heatLayer(heatData, {
+    radius: 18,
+    blur: 20,
+    maxZoom: 17,
+    max: 8,
+    minOpacity: 0.5,
+    gradient: {
+      0.15: '#313bac',
+      0.35: '#06b6d4',
+      0.55: '#84cc16',
+      0.75: '#facc15',
+      1.00: '#ef4444',
+    },
+  }).addTo(map);
+}
+
+function buildDotsFiltered(data) {
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  if (dotLayer) { map.removeLayer(dotLayer); dotLayer = null; }
+
+  dotLayer = L.layerGroup();
+
+  data.forEach(([lat, lon, cnt, oi, pi, ii, ts, enb, eci, anomalyScore, riskLevel, avgRsrp, coverageLevel, coverageColor, coverageScore]) => {
+    let color;
+    if (APP.mlCoverageMode && coverageColor) {
+      color = coverageColor;
+    } else if (APP.mlCoverageMode && riskLevel) {
+      color = riskLevel === 'high' ? '#ef4444' : (riskLevel === 'medium' ? '#f59e0b' : '#10b981');
+    } else {
+      color = APP.colors[oi] || '#3b82f6';
+    }
+
+    const marker = L.circleMarker([lat, lon], {
+      renderer: canvasRend,
+      radius: 8,
+      color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: 0.9,
+    });
+
+    if (APP.mlCoverageMode && avgRsrp) {
+      marker.bindTooltip(`RSRP: ${avgRsrp.toFixed(0)} dBm`, { permanent: false, direction: 'top' });
+    }
+
+    dotLayer.addLayer(marker);
+  });
+
+  dotLayer.addTo(map);
 }
 
 function buildDots(data) {
