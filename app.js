@@ -2045,6 +2045,7 @@ function generateReport() {
 <html lang="${isHe ? 'he' : 'en'}" dir="${dir}">
 <head>
 <meta charset="utf-8">
+<link rel="icon" type="image/png" href="Favicon.png">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${L.title}</title>
 <style>
