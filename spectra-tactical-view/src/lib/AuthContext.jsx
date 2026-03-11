@@ -1,58 +1,40 @@
 /**
- * AuthContext — Phase 1: hardcoded super-admin (no login required).
- * The spectra-api /api/auth/me returns the super admin user object.
- * Real Google + email/password auth is Phase 2.
+ * AuthContext — Phase 1: super-admin always authenticated.
+ * The app renders immediately without waiting for the API.
+ * spectra-api connection is only needed for RSU/Alert data, not for gating the UI.
  */
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const API_BASE = import.meta.env.VITE_SPECTRA_API || 'http://localhost:8001';
+// Hardcoded super admin — no login required in Phase 1
+const SUPER_ADMIN = {
+  id:              'superadmin-001',
+  email:           'admin@spectra.io',
+  full_name:       'Spectra Admin',
+  organization_id: 'org-spectra',
+  is_super_admin:  true,
+  role:            'admin',
+  custom_role:     'admin',
+};
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]                       = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth]     = useState(true);
-  const [isLoadingPublicSettings]             = useState(false);
-  const [authError, setAuthError]             = useState(null);
-  const [appPublicSettings]                   = useState({ id: 'spectra', public_settings: {} });
+  // Always authenticated immediately — no async wait
+  const [user]               = useState(SUPER_ADMIN);
+  const [isAuthenticated]    = useState(true);
+  const [isLoadingAuth]      = useState(false);
+  const [isLoadingPublicSettings] = useState(false);
+  const [authError]          = useState(null);
+  const [appPublicSettings]  = useState({ id: 'spectra', public_settings: {} });
 
-  useEffect(() => { loadUser(); }, []);
-
-  const loadUser = async () => {
-    setIsLoadingAuth(true);
-    setAuthError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/auth/me`);
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
-      const u = await res.json();
-      setUser(u);
-      setIsAuthenticated(true);
-    } catch (err) {
-      console.error('[Spectra] Auth check failed:', err.message);
-      setAuthError({
-        type: 'api_unavailable',
-        message: `Cannot reach Spectra API — make sure it is running:\n  cd spectra-api && bash start.sh\n\n${err.message}`,
-      });
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoadingAuth(false);
-    }
-  };
-
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' }).catch(() => {});
-  };
-
-  const navigateToLogin = () => { loadUser(); };
+  const logout        = () => {};   // Phase 2
+  const navigateToLogin = () => {}; // Phase 2
 
   return (
     <AuthContext.Provider value={{
       user, isAuthenticated, isLoadingAuth, isLoadingPublicSettings,
       authError, appPublicSettings, logout, navigateToLogin,
-      checkAppState: loadUser,
+      checkAppState: () => {},
     }}>
       {children}
     </AuthContext.Provider>
