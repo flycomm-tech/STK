@@ -1,3 +1,4 @@
+from typing import Optional
 """ClickHouse HTTP client — mirrors server.py pattern, no extra dependencies."""
 import urllib.request
 import urllib.parse
@@ -40,7 +41,7 @@ def run_query(sql: str) -> list[dict]:
         raise RuntimeError(f"ClickHouse query failed: {e}")
 
 
-def run_query_one(sql: str) -> dict | None:
+def run_query_one(sql: str) -> Optional[dict]:
     """Return the first row or None."""
     rows = run_query(sql)
     return rows[0] if rows else None

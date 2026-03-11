@@ -1,3 +1,4 @@
+from typing import Optional
 """Cluster endpoints — static geographic clusters + live RSU counts."""
 from fastapi import APIRouter, HTTPException
 from clickhouse import run_query
@@ -7,7 +8,7 @@ router = APIRouter(prefix="/api/clusters", tags=["clusters"])
 
 
 @router.get("")
-def list_clusters(organization_id: str | None = None):
+def list_clusters(organization_id: Optional[str] = None):
     """Return all clusters with live RSU online counts."""
     # Get last-seen per IMEI to compute online status
     sql = f"""

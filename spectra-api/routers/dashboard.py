@@ -1,3 +1,4 @@
+from typing import Optional
 """Dashboard KPI endpoints."""
 from fastapi import APIRouter, HTTPException
 from clickhouse import run_query, run_query_one
@@ -45,7 +46,7 @@ WHERE source = '{MODEM_SOURCE}'
 
 
 @router.get("/signal-timeline")
-def signal_timeline(imei: str | None = None, days: int = 30):
+def signal_timeline(imei: Optional[str] = None, days: int = 30):
     """Daily average RSRP per RSU for timeline chart."""
     imei_filter = f"AND deviceInfo_imei = '{imei}'" if imei else ""
     sql = f"""

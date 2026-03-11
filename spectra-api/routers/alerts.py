@@ -1,3 +1,4 @@
+from typing import Optional, List
 """Alert endpoints — anomalies computed from ClickHouse modem data."""
 from fastapi import APIRouter, Query, HTTPException
 from datetime import datetime, timezone
@@ -233,16 +234,16 @@ ORDER BY max_temp DESC
 
 @router.get("")
 def list_alerts(
-    status: str | None = Query(None),
-    severity: str | None = Query(None),
-    organization_id: str | None = Query(None),
-    cluster_id: str | None = Query(None),
-    rsu_id: str | None = Query(None),
+    status: Optional[str] = Query(None),
+    severity: Optional[str] = Query(None),
+    organization_id: Optional[str] = Query(None),
+    cluster_id: Optional[str] = Query(None),
+    rsu_id: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
 ):
     """Return all computed anomaly alerts."""
     try:
-        alerts: list[dict] = []
+        alerts: List[dict] = []
         alerts += _offline_alerts()
         alerts += _tac_anomaly_alerts()
         alerts += _signal_anomaly_alerts()

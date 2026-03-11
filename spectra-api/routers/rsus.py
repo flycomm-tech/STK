@@ -1,3 +1,4 @@
+from typing import Optional
 """RSU endpoints — live data from ClickHouse (source='modem')."""
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timezone
@@ -7,7 +8,7 @@ from config import MODEM_SOURCE, IMEI_INDEX, RSU_FLEET
 router = APIRouter(prefix="/api/rsus", tags=["rsus"])
 
 
-def _status(last_seen_str: str | None) -> str:
+def _status(last_seen_str: Optional[str]) -> str:
     """Derive RSU online status from last heartbeat timestamp."""
     if not last_seen_str:
         return "offline"
@@ -93,9 +94,9 @@ ORDER BY total_samples DESC
 
 @router.get("")
 def list_rsus(
-    cluster_id: str | None = Query(None),
-    status: str | None = Query(None),
-    organization_id: str | None = Query(None),
+    cluster_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    organization_id: Optional[str] = Query(None),
 ):
     """List all RSUs with live ClickHouse data."""
     try:
