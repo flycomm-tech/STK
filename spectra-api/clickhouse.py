@@ -1,7 +1,12 @@
 """ClickHouse HTTP client — uses requests for reliable SSL on Vercel."""
 from typing import Optional
+import urllib3
 import requests as http_requests
 from config import CH_HOST, CH_PORT, CH_DB, CH_USER, CH_PASSWORD, CH_SSL
+
+# Vercel's Python 3.9 OpenSSL build has TLS compatibility issues with
+# ClickHouse Cloud — disable verification for this server-to-server call.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 def run_query(sql: str) -> list[dict]:
@@ -16,6 +21,7 @@ def run_query(sql: str) -> list[dict]:
         auth=(CH_USER, CH_PASSWORD),
         headers={"Content-Type": "text/plain; charset=utf-8"},
         timeout=30,
+        verify=False,
     )
 
     if resp.status_code != 200:
