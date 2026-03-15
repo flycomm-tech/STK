@@ -72,6 +72,35 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+class DevLoginRequest(BaseModel):
+    email: str
+
+
+@router.post("/dev-login")
+def dev_login(body: DevLoginRequest, db: Session = Depends(get_db)):
+    """Email login — find or create user by email, return JWT."""
+    email = body.email.lower().strip()
+    full_name = email.split("@")[0].replace(".", " ").title()
+
+    user = db.query(User).filter_by(email=email).first()
+    if not user:
+        is_super = email in SUPER_ADMIN_EMAILS
+        user = User(
+            id=str(uuid.uuid4()),
+            email=email,
+            full_name=full_name,
+            organization_id="org-spectra",
+            role="admin" if is_super else "viewer",
+            is_super_admin=is_super,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = _create_jwt(user.id, user.email)
+    return {"token": token, "user": _user_dict(user)}
+
+
 @router.post("/google")
 def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
     """Verify Google ID token and return a JWT."""

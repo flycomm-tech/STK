@@ -179,6 +179,11 @@ const auth = {
     setToken(res.token);
     return res.user;
   },
+  async devLogin(email) {
+    const res = await post('/api/auth/dev-login', { email });
+    setToken(res.token);
+    return res.user;
+  },
   async logout() {
     try { await post('/api/auth/logout'); } catch (_) { /* ignore */ }
     clearToken();
