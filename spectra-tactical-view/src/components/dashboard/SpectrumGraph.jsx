@@ -17,14 +17,14 @@ export default function SpectrumGraph({ rsuId, hasAnomaly = false }) {
     setData(generateSpectrumData(band, hasAnomaly));
   }, [band, hasAnomaly]);
 
-  // Simulate live updates
+  // Simulate live updates — slow cadence to avoid visual jitter
   useEffect(() => {
     const interval = setInterval(() => {
       setData(prev => prev.map(d => ({
         ...d,
-        realtime: parseFloat((d.realtime + (Math.random() - 0.5) * 1.5).toFixed(1)),
+        realtime: parseFloat((d.realtime + (Math.random() - 0.5) * 0.8).toFixed(1)),
       })));
-    }, 600);
+    }, 4000);
     return () => clearInterval(interval);
   }, [band]);
 

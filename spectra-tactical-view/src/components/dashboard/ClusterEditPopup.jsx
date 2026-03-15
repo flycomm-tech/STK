@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import ClusterRsuManager from "./ClusterRsuManager";
 
 const COLOR_OPTIONS = [
@@ -36,7 +36,7 @@ export default function ClusterEditPopup({ cluster, open, onOpenChange, onUpdate
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
-    const updated = await base44.entities.Cluster.update(cluster.id, {
+    const updated = await spectra.entities.Cluster.update(cluster.id, {
       name: name.trim(),
       description: description.trim(),
       color,
@@ -47,14 +47,14 @@ export default function ClusterEditPopup({ cluster, open, onOpenChange, onUpdate
   };
 
   const handleDelete = async () => {
-    await base44.entities.Cluster.delete(cluster.id);
+    await spectra.entities.Cluster.delete(cluster.id);
     onDeleted?.(cluster.id);
     onOpenChange(false);
   };
 
   const handleClearPolygon = async () => {
     setSaving(true);
-    const updated = await base44.entities.Cluster.update(cluster.id, { polygon: [] });
+    const updated = await spectra.entities.Cluster.update(cluster.id, { polygon: [] });
     setSaving(false);
     onUpdated?.(updated);
   };

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ export default function OrgUserManagement({ organizationId, organizationName, is
     queryKey: ['org-members', organizationId],
     queryFn: async () => {
       if (!organizationId) return [];
-      return await base44.entities.OrganizationMember.filter({ organization_id: organizationId });
+      return await spectra.entities.OrganizationMember.filter({ organization_id: organizationId });
     },
     enabled: !!organizationId,
   });
@@ -43,14 +43,14 @@ export default function OrgUserManagement({ organizationId, organizationName, is
 
       // Try to invite user to the platform (only works for platform admins)
       try {
-        await base44.users.inviteUser(email, "user");
+        await spectra.users.inviteUser(email, "user");
       } catch (err) {
         // Not a platform admin - that's OK, just add to org membership
         console.log("Platform invite skipped (not platform admin), adding to org membership only.");
       }
 
       // Create OrganizationMember record
-      await base44.entities.OrganizationMember.create({
+      await spectra.entities.OrganizationMember.create({
         organization_id: organizationId,
         user_email: email,
         user_name: name || email.split('@')[0],
@@ -60,10 +60,10 @@ export default function OrgUserManagement({ organizationId, organizationName, is
 
       // Also try to update the User entity if we have access
       try {
-        const allUsers = await base44.entities.User.list();
+        const allUsers = await spectra.entities.User.list();
         const user = allUsers.find(u => u.email === email);
         if (user) {
-          await base44.entities.User.update(user.id, {
+          await spectra.entities.User.update(user.id, {
             organization_id: organizationId,
             custom_role: role,
           });
@@ -87,11 +87,11 @@ export default function OrgUserManagement({ organizationId, organizationName, is
 
   const updateMutation = useMutation({
     mutationFn: async ({ memberId, data }) => {
-      await base44.entities.OrganizationMember.update(memberId, data);
+      await spectra.entities.OrganizationMember.update(memberId, data);
       // Also try to sync to User entity
       try {
         if (data.user_id) {
-          await base44.entities.User.update(data.user_id, {
+          await spectra.entities.User.update(data.user_id, {
             custom_role: data.role,
             ...(isSuperAdmin && data.is_super_admin !== undefined ? { is_super_admin: data.is_super_admin } : {}),
           });
@@ -107,7 +107,7 @@ export default function OrgUserManagement({ organizationId, organizationName, is
 
   const deleteMutation = useMutation({
     mutationFn: async (memberId) => {
-      await base44.entities.OrganizationMember.delete(memberId);
+      await spectra.entities.OrganizationMember.delete(memberId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['org-members', organizationId] });

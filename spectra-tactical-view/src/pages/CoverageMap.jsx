@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { AnimatePresence } from "framer-motion";
 import TacticalMap from "../components/dashboard/TacticalMap";
 import RSUDetailPanel from "../components/dashboard/RSUDetailPanel";
@@ -10,7 +10,7 @@ export default function CoverageMap() {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    spectra.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const handleRsuClick = useCallback((rsu) => {

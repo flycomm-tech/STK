@@ -1,5 +1,4 @@
 /**
- * Base44 client — replaced by Spectra's own ClickHouse-backed API.
- * Re-exports from spectraClient so all existing imports work unchanged.
+ * Legacy shim — all code now imports directly from spectraClient.
  */
-export { base44, spectra } from './spectraClient';
+export { spectra } from './spectraClient';

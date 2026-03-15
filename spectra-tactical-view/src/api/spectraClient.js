@@ -9,7 +9,7 @@
  *   cd spectra-api && bash start.sh
  */
 
-const API_BASE = import.meta.env.VITE_SPECTRA_API || 'http://localhost:8001';
+const API_BASE = import.meta.env.VITE_SPECTRA_API || '';
 
 // ── Core HTTP helper ─────────────────────────────────────────────
 
@@ -92,9 +92,14 @@ function makeEntity(basePath, opts = {}) {
           current.filter(r => !prevIds.has(r.id))
             .forEach(r => callback({ type: 'create', data: r }));
 
-          // Detect updates (simplified — any change triggers update)
+          // Detect updates — only fire when data actually changed
+          const prevById = Object.fromEntries(previous.map(r => [r.id, r]));
           current.filter(r => prevIds.has(r.id))
-            .forEach(r => callback({ type: 'update', data: r }));
+            .forEach(r => {
+              if (JSON.stringify(prevById[r.id]) !== JSON.stringify(r)) {
+                callback({ type: 'update', data: r });
+              }
+            });
 
           // Detect deletes
           previous.filter(r => !currIds.has(r.id))
@@ -135,7 +140,7 @@ const entities = {
   RSU:                makeEntity('/api/rsus'),
   Alert:              makeEntity('/api/alerts'),
   Cluster:            makeEntity('/api/clusters'),
-  Organization:       makeEntity('/api/organizations', { readOnly: true }),
+  Organization:       makeEntity('/api/organizations'),
   // Stubs for settings pages (Phase 2 will wire these up)
   OrganizationMember: stub('org-member'),
   User:               stub('user'),
@@ -163,7 +168,27 @@ const users = {
   inviteUser: async (email, role) => ({ ok: true, email, role }),
 };
 
-// ── Main export — mirrors base44 client shape ─────────────────────
+// ── Timeline ─────────────────────────────────────────────────────
 
-export const spectra = { entities, auth, users };
-export const base44  = spectra; // backward-compat alias
+/**
+ * fetchTimeline({ fromTs, toTs, bucketMinutes, imei })
+ *   fromTs / toTs — ISO strings e.g. "2025-03-01T00:00:00"
+ *   bucketMinutes — 1 | 5 | 15 | 60
+ *   imei          — optional IMEI filter
+ *
+ * Returns { frames, total_frames, from_ts, to_ts, bucket_minutes }
+ */
+async function fetchTimeline({ fromTs, toTs, bucketMinutes = 5, imei } = {}) {
+  const params = new URLSearchParams({ from_ts: fromTs, to_ts: toTs, bucket_minutes: bucketMinutes });
+  if (imei) params.append('imei', imei);
+  return get(`/api/timeline?${params.toString()}`);
+}
+
+/** Returns { min_ts, max_ts } of available modem data in ClickHouse. */
+async function fetchTimelineRange() {
+  return get('/api/timeline/range');
+}
+
+// ── Main export ───────────────────────────────────────────────────
+
+export const spectra = { entities, auth, users, fetchTimeline, fetchTimelineRange };

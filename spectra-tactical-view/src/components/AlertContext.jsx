@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 
 const AlertContext = createContext(null);
+
+const LS_KEY = "spectra_dismissed_alerts";
+
+function loadDismissed() {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+function saveDismissed(set) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify([...set])); } catch {}
+}
 
 export function AlertProvider({ children }) {
   const [alerts, setAlerts] = useState([]);
   const [demoAlerts, setDemoAlerts] = useState([]);
+  const [dismissedIds, setDismissedIds] = useState(loadDismissed);
   const [unacknowledgedCount, setUnacknowledgedCount] = useState(0);
   const [organizationId, setOrganizationId] = useState(null);
 
@@ -18,7 +29,7 @@ export function AlertProvider({ children }) {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await spectra.auth.me();
         if (user.organization_id) {
           setOrganizationId(user.organization_id);
         }
@@ -34,7 +45,7 @@ export function AlertProvider({ children }) {
     if (!organizationId) return;
     const loadAlerts = async () => {
       try {
-        const fetchedAlerts = await base44.entities.Alert.filter(
+        const fetchedAlerts = await spectra.entities.Alert.filter(
           { organization_id: organizationId },
           '-created_date',
           100
@@ -51,25 +62,26 @@ export function AlertProvider({ children }) {
   useEffect(() => {
     if (!organizationId) return;
 
-    const unsubscribe = base44.entities.Alert.subscribe((event) => {
+    const unsubscribe = spectra.entities.Alert.subscribe((event) => {
       if (event.data?.organization_id !== organizationId) return;
 
+      const id = event.data?.id;
       if (event.type === 'create') {
-        setAlerts(prev => [event.data, ...prev].slice(0, 100));
+        setAlerts(prev => prev.some(a => a.id === id) ? prev : [event.data, ...prev].slice(0, 100));
       } else if (event.type === 'update') {
-        setAlerts(prev => prev.map(a => a.id === event.id ? event.data : a));
+        setAlerts(prev => prev.map(a => a.id === id ? event.data : a));
       } else if (event.type === 'delete') {
-        setAlerts(prev => prev.filter(a => a.id !== event.id));
+        setAlerts(prev => prev.filter(a => a.id !== id));
       }
     });
 
     return unsubscribe;
   }, [organizationId]);
 
-  // Combine real alerts + demo alerts
+  // Combine real alerts + demo alerts, excluding dismissed
   const allAlerts = React.useMemo(() => {
-    return [...demoAlerts, ...alerts];
-  }, [alerts, demoAlerts]);
+    return [...demoAlerts, ...alerts].filter(a => !dismissedIds.has(a.id));
+  }, [alerts, demoAlerts, dismissedIds]);
 
   useEffect(() => {
     setUnacknowledgedCount(allAlerts.filter(a => a.status === "active").length);
@@ -82,9 +94,9 @@ export function AlertProvider({ children }) {
       setDemoAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status: "acknowledged" } : a));
       return;
     }
-    await base44.entities.Alert.update(alertId, { 
+    await spectra.entities.Alert.update(alertId, { 
       status: "acknowledged",
-      acknowledged_by: (await base44.auth.me()).email
+      acknowledged_by: (await spectra.auth.me()).email
     });
     // Optimistic update for immediate UI feedback
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status: "acknowledged" } : a));
@@ -96,7 +108,7 @@ export function AlertProvider({ children }) {
       setDemoAlerts(prev => prev.map(a => a.id === alertId ? { ...a, status: "resolved", resolved_at: new Date().toISOString() } : a));
       return;
     }
-    await base44.entities.Alert.update(alertId, { 
+    await spectra.entities.Alert.update(alertId, { 
       status: "resolved",
       resolved_at: new Date().toISOString()
     });
@@ -112,8 +124,17 @@ export function AlertProvider({ children }) {
     setDemoAlerts([]);
   }, []);
 
+  // Dismiss all currently visible alerts (survives polling — stored in localStorage)
+  const clearAllAlerts = useCallback(() => {
+    const newDismissed = new Set(dismissedIds);
+    [...demoAlerts, ...alerts].forEach(a => newDismissed.add(a.id));
+    setDismissedIds(newDismissed);
+    saveDismissed(newDismissed);
+    setDemoAlerts([]);
+  }, [dismissedIds, demoAlerts, alerts]);
+
   return (
-    <AlertContext.Provider value={{ alerts: allAlerts, unacknowledgedCount, acknowledgeAlert, resolveAlert, setActiveOrganizationId, addDemoAlert, clearDemoAlerts }}>
+    <AlertContext.Provider value={{ alerts: allAlerts, unacknowledgedCount, acknowledgeAlert, resolveAlert, setActiveOrganizationId, addDemoAlert, clearDemoAlerts, clearAllAlerts }}>
       {children}
     </AlertContext.Provider>
   );

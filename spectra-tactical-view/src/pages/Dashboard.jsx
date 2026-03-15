@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { AnimatePresence } from "framer-motion";
 import AlertStreamPanel from "../components/dashboard/AlertStreamPanel";
 import TacticalMap from "../components/dashboard/TacticalMap";
 import RSUDetailPanel from "../components/dashboard/RSUDetailPanel";
 import CesiumMapView from "../components/dashboard/CesiumMapView";
+import TimelinePlayer from "../components/dashboard/TimelinePlayer";
 import { useAlerts } from "../components/AlertContext";
 
 export default function Dashboard() {
@@ -19,13 +20,16 @@ export default function Dashboard() {
   const [show3DView, setShow3DView] = useState(false);
   const [mapRsus, setMapRsus] = useState([]);
   const [mapClusters, setMapClusters] = useState([]);
+  const [rsuOverride, setRsuOverride] = useState(null);
+  const [timelineMode, setTimelineMode] = useState(false);
+  const [playbackFrame, setPlaybackFrame] = useState(null);
   const demoRef = useRef(false);
   const { alerts: allAlerts, setActiveOrganizationId, clearDemoAlerts, addDemoAlert } = useAlerts();
 
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await spectra.auth.me();
         setCurrentUser(user);
         
         const isSuperAdmin = user.is_super_admin || user.role === 'admin';
@@ -33,7 +37,7 @@ export default function Dashboard() {
         
         if (isSuperAdmin) {
           // Super admins can select any organization
-          const allOrgs = await base44.entities.Organization.list();
+          const allOrgs = await spectra.entities.Organization.list();
           setOrganizations(allOrgs);
           if (userOrgId) {
             const userOrg = allOrgs.find(o => o.id === userOrgId);
@@ -43,7 +47,7 @@ export default function Dashboard() {
             setSelectedOrgId(allOrgs[0].id);
           }
         } else if (userOrgId) {
-          const orgs = await base44.entities.Organization.filter({ id: userOrgId });
+          const orgs = await spectra.entities.Organization.filter({ id: userOrgId });
           if (orgs.length > 0) {
             setOrganization(orgs[0]);
             setSelectedOrgId(userOrgId);
@@ -68,10 +72,10 @@ export default function Dashboard() {
     if (!selectedOrgId) return;
     const loadOrgData = async () => {
       try {
-        const org = await base44.entities.Organization.filter({ id: selectedOrgId });
-        if (org.length > 0) { setOrganization(org[0]); }
+        const org = await spectra.entities.Organization.get(selectedOrgId);
+        if (org) { setOrganization(org); }
         
-        const orgRsus = await base44.entities.RSU.filter({ organization_id: selectedOrgId });
+        const orgRsus = await spectra.entities.RSU.filter({ organization_id: selectedOrgId });
         if (orgRsus.length > 0) {
           const lastRsu = orgRsus.sort((a, b) => new Date(b.created_date) - new Date(a.created_date))[0];
           const lat = parseFloat(lastRsu.latitude);
@@ -105,24 +109,15 @@ export default function Dashboard() {
     }
   }, []);
 
-  // Subscribe to RSU updates to refresh selectedRsu when status changes
-  useEffect(() => {
-    if (!selectedRsu) return;
-    const unsubscribe = base44.entities.RSU.subscribe((event) => {
-      if (event.id === selectedRsu.id) {
-        setSelectedRsu(event.data);
-      }
-    });
-    return unsubscribe;
-  }, [selectedRsu?.id]);
+  // RSUDetailPanel manages its own live subscription — no duplicate subscribe needed here.
 
   // Load RSUs and clusters for 3D view
   useEffect(() => {
     if (!selectedOrgId) return;
     const load3DData = async () => {
       const [r, c] = await Promise.all([
-        base44.entities.RSU.filter({ organization_id: selectedOrgId }),
-        base44.entities.Cluster.filter({ organization_id: selectedOrgId }),
+        spectra.entities.RSU.filter({ organization_id: selectedOrgId }),
+        spectra.entities.Cluster.filter({ organization_id: selectedOrgId }),
       ]);
       setMapRsus(r);
       setMapClusters(c);
@@ -136,6 +131,20 @@ export default function Dashboard() {
     setDemoRunning(false);
     clearDemoAlerts();
   }, [selectedOrgId, clearDemoAlerts]);
+
+  // Refresh org is_demo status when tab becomes visible (e.g., after toggling in Settings)
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState === 'visible' && selectedOrgId) {
+        try {
+          const org = await spectra.entities.Organization.get(selectedOrgId);
+          if (org) setOrganization(org);
+        } catch (_) {}
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [selectedOrgId]);
 
   const handleDemoAlert = () => {
     if (!selectedOrgId) return;
@@ -160,7 +169,7 @@ export default function Dashboard() {
       if (!demoRef.current) return;
 
       if (!orgRsusCache || orgRsusCache.length === 0) {
-        orgRsusCache = await base44.entities.RSU.filter({ organization_id: selectedOrgId });
+        orgRsusCache = await spectra.entities.RSU.filter({ organization_id: selectedOrgId });
         if (orgRsusCache.length === 0) {
           demoRef.current = false;
           setDemoRunning(false);
@@ -168,7 +177,7 @@ export default function Dashboard() {
         }
       }
       if (!orgClustersCache) {
-        orgClustersCache = await base44.entities.Cluster.filter({ organization_id: selectedOrgId });
+        orgClustersCache = await spectra.entities.Cluster.filter({ organization_id: selectedOrgId });
       }
 
       const ANOMALY_RULES = [
@@ -388,17 +397,46 @@ export default function Dashboard() {
           editingRsuId={editingRsuId}
           isAdmin={currentUser?.custom_role === 'admin' || currentUser?.is_super_admin || currentUser?.role === 'admin'}
           isSuperAdmin={currentUser?.is_super_admin || currentUser?.role === 'admin'}
+          rsuOverride={rsuOverride}
+          playbackFrame={playbackFrame}
+          timelineMode={timelineMode}
         />
 
-        {/* 3D View Toggle */}
+        {/* Bottom-right controls: Timeline + 3D Globe */}
         {!show3DView && (
-          <button
-            onClick={() => setShow3DView(true)}
-            className="absolute bottom-10 right-3 z-[1000] px-3 py-2 bg-[#141B2E]/90 border border-white/10 rounded-lg text-[12px] text-slate-300 hover:text-slate-100 hover:bg-white/10 transition-colors backdrop-blur-md flex items-center gap-2 font-medium"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/></svg>
-            3D Globe
-          </button>
+          <div className="absolute bottom-10 right-3 z-[1000] flex flex-col gap-2 items-end">
+            {/* Timeline Playback toggle */}
+            <button
+              onClick={() => { setTimelineMode(m => !m); setPlaybackFrame(null); }}
+              className={`px-3 py-2 rounded-lg text-[12px] border backdrop-blur-md flex items-center gap-2 font-medium transition-colors ${
+                timelineMode
+                  ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+                  : "bg-[#141B2E]/90 border-white/10 text-slate-300 hover:text-slate-100 hover:bg-white/10"
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {timelineMode ? "Timeline On" : "Timeline"}
+            </button>
+
+            {/* 3D Globe toggle */}
+            <button
+              onClick={() => setShow3DView(true)}
+              className="px-3 py-2 bg-[#141B2E]/90 border border-white/10 rounded-lg text-[12px] text-slate-300 hover:text-slate-100 hover:bg-white/10 transition-colors backdrop-blur-md flex items-center gap-2 font-medium"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/></svg>
+              3D Globe
+            </button>
+          </div>
+        )}
+
+        {/* Timeline Player bar */}
+        {timelineMode && !show3DView && (
+          <TimelinePlayer
+            onFrame={setPlaybackFrame}
+            onExit={() => { setTimelineMode(false); setPlaybackFrame(null); }}
+          />
         )}
 
         {/* 3D View Overlay - Cesium Globe */}
@@ -426,6 +464,7 @@ export default function Dashboard() {
             isEditing={editingRsuId === selectedRsu.id}
             onEditChange={setEditingRsuId}
             isAdmin={currentUser?.custom_role === 'admin' || currentUser?.is_super_admin || currentUser?.role === 'admin'}
+            onSaved={(updated) => { setSelectedRsu(updated); setRsuOverride(updated); }}
           />
         )}
       </AnimatePresence>

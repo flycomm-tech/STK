@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { useAlerts } from "../AlertContext";
 import SeverityBadge from "../spectra/SeverityBadge";
 import { Radio, Eye, MapPin, ChevronDown } from "lucide-react";
@@ -9,7 +9,7 @@ import moment from "moment";
 const FILTER_TABS = ["all", "critical", "high", "medium", "low", "acknowledged"];
 
 export default function AlertStreamPanel({ onFlyTo }) {
-  const { alerts, unacknowledgedCount, acknowledgeAlert } = useAlerts();
+  const { alerts, unacknowledgedCount, acknowledgeAlert, clearAllAlerts } = useAlerts();
   const [activeFilter, setActiveFilter] = useState("all");
   const [clusterMap, setClusterMap] = useState({});
   const [rsuMap, setRsuMap] = useState({});
@@ -18,8 +18,8 @@ export default function AlertStreamPanel({ onFlyTo }) {
   useEffect(() => {
     const load = async () => {
       const [clusters, rsus] = await Promise.all([
-        base44.entities.Cluster.list(),
-        base44.entities.RSU.list()
+        spectra.entities.Cluster.list(),
+        spectra.entities.RSU.list()
       ]);
       const cMap = {};
       clusters.forEach(c => { cMap[c.id] = c.name; });
@@ -59,6 +59,15 @@ export default function AlertStreamPanel({ onFlyTo }) {
           <span className="ml-auto text-[10px] font-mono text-red-400 bg-red-500/10 border border-red-500/30 px-1.5 py-0.5 rounded-full">
             {unacknowledgedCount} active
           </span>
+          {alerts.length > 0 && (
+            <button
+              onClick={clearAllAlerts}
+              className="text-[10px] text-slate-500 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded border border-transparent hover:border-red-500/30"
+              title="Clear all alerts"
+            >
+              ✕ Clear
+            </button>
+          )}
         </div>
         {/* Filter Tabs */}
         <div className="flex gap-1 overflow-x-auto no-scrollbar">

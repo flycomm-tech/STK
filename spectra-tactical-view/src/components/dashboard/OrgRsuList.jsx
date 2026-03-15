@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { Radio, MapPin } from "lucide-react";
 import StatusDot from "../spectra/StatusDot";
 import moment from "moment";
@@ -13,7 +13,7 @@ export default function OrgRsuList({ organizationId, onRsuClick, selectedRsuId }
     const loadRsus = async () => {
       try {
         setLoading(true);
-        const data = await base44.entities.RSU.filter({ organization_id: organizationId });
+        const data = await spectra.entities.RSU.filter({ organization_id: organizationId });
         setRsus(data);
       } catch (error) {
         console.error("Failed to load RSUs:", error);

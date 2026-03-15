@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { useAlerts } from "../components/AlertContext";
 import StatusDot from "../components/spectra/StatusDot";
 import { Input } from "@/components/ui/input";
@@ -29,17 +29,17 @@ export default function RSUsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const user = await base44.auth.me();
+      const user = await spectra.auth.me();
       setCurrentUser(user);
       
-      const allClusters = await base44.entities.Cluster.list();
+      const allClusters = await spectra.entities.Cluster.list();
       setClusters(allClusters);
       
       // Super admin sees all, regular users see their org only
       const isSuperAdmin = user.is_super_admin || user.role === 'admin';
       const rsuQuery = (!isSuperAdmin && user.organization_id)
-        ? await base44.entities.RSU.filter({ organization_id: user.organization_id })
-        : await base44.entities.RSU.list();
+        ? await spectra.entities.RSU.filter({ organization_id: user.organization_id })
+        : await spectra.entities.RSU.list();
       setRsus(rsuQuery);
     };
     loadData();
@@ -48,7 +48,7 @@ export default function RSUsPage() {
   const handleDelete = async () => {
     if (!deleteRsu) return;
     try {
-      await base44.entities.RSU.delete(deleteRsu.id);
+      await spectra.entities.RSU.delete(deleteRsu.id);
       setRsus(rsus.filter(r => r.id !== deleteRsu.id));
       setDeleteRsu(null);
     } catch (error) {

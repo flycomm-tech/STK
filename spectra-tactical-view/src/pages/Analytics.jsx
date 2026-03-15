@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { generateSpectrumData } from "../components/mockData";
 import { useAlerts } from "../components/AlertContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -176,13 +176,13 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const user = await base44.auth.me();
+      const user = await spectra.auth.me();
       const orgId = user.organization_id;
       const isSuperAdmin = user.is_super_admin || user.role === 'admin';
       
       const [fetchedRsus, fetchedClusters] = await Promise.all([
-        orgId ? base44.entities.RSU.filter({ organization_id: orgId }) : (isSuperAdmin ? base44.entities.RSU.list() : []),
-        orgId ? base44.entities.Cluster.filter({ organization_id: orgId }) : (isSuperAdmin ? base44.entities.Cluster.list() : []),
+        orgId ? spectra.entities.RSU.filter({ organization_id: orgId }) : (isSuperAdmin ? spectra.entities.RSU.list() : []),
+        orgId ? spectra.entities.Cluster.filter({ organization_id: orgId }) : (isSuperAdmin ? spectra.entities.Cluster.list() : []),
       ]);
       setRsus(fetchedRsus);
       setClusters(fetchedClusters);

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ToggleLeft, ToggleRight, Save } from "lucide-react";
 
-export default function OrgSettings({ organization, isSuperAdmin }) {
+export default function OrgSettings({ organization, isSuperAdmin, onUpdated }) {
   const [name, setName] = useState(organization?.name || "");
+  const [isDemo, setIsDemo] = useState(organization?.is_demo || false);
   const [dbHost, setDbHost] = useState(organization?.db_host || "");
   const [dbPort, setDbPort] = useState(organization?.db_port || 5432);
   const [dbName, setDbName] = useState(organization?.db_name || "");
@@ -22,7 +23,7 @@ export default function OrgSettings({ organization, isSuperAdmin }) {
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
-    mutationFn: (data) => base44.entities.Organization.update(organization.id, data),
+    mutationFn: (data) => spectra.entities.Organization.update(organization.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
       setSaved(true);
@@ -31,8 +32,11 @@ export default function OrgSettings({ organization, isSuperAdmin }) {
   });
 
   const toggleDemoMutation = useMutation({
-    mutationFn: () => base44.entities.Organization.update(organization.id, { is_demo: !organization.is_demo }),
-    onSuccess: () => {
+    mutationFn: () => spectra.entities.Organization.update(organization.id, { is_demo: !isDemo }),
+    onSuccess: (updated) => {
+      const newIsDemo = !isDemo;
+      setIsDemo(newIsDemo);
+      onUpdated?.({ ...organization, is_demo: newIsDemo, ...updated });
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
     },
   });
@@ -76,7 +80,7 @@ export default function OrgSettings({ organization, isSuperAdmin }) {
         </div>
         <div className="flex items-center gap-3">
           <Label className="text-[11px] text-slate-400">Demo Mode</Label>
-          {organization.is_demo ? (
+          {isDemo ? (
             <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px]">Active</Badge>
           ) : (
             <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px]">Production</Badge>
@@ -88,8 +92,8 @@ export default function OrgSettings({ organization, isSuperAdmin }) {
               onClick={() => toggleDemoMutation.mutate()}
               className="h-7 text-xs bg-transparent border-white/10 text-slate-300 hover:bg-white/5"
             >
-              {organization.is_demo ? <ToggleRight className="w-3.5 h-3.5 mr-1 text-amber-400" /> : <ToggleLeft className="w-3.5 h-3.5 mr-1" />}
-              {organization.is_demo ? "Disable Demo" : "Enable Demo"}
+              {isDemo ? <ToggleRight className="w-3.5 h-3.5 mr-1 text-amber-400" /> : <ToggleLeft className="w-3.5 h-3.5 mr-1" />}
+              {isDemo ? "Disable Demo" : "Enable Demo"}
             </Button>
           )}
         </div>

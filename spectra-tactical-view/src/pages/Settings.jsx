@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,18 +119,35 @@ function NotificationsTab({ organization }) {
 export default function SettingsPage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [organization, setOrganization] = useState(null);
+  const [allOrgs, setAllOrgs] = useState([]);
+  const [selectedOrgId, setSelectedOrgId] = useState(null);
 
   useEffect(() => {
     const loadData = async () => {
-      const user = await base44.auth.me();
+      const user = await spectra.auth.me();
       setCurrentUser(user);
-      if (user.organization_id) {
-        const orgs = await base44.entities.Organization.filter({ id: user.organization_id });
-        if (orgs.length > 0) setOrganization(orgs[0]);
+      const isSuper = user.is_super_admin || user.role === 'admin';
+      if (isSuper) {
+        const orgs = await spectra.entities.Organization.list();
+        setAllOrgs(orgs);
+        const defaultOrgId = user.organization_id || (orgs[0]?.id ?? null);
+        setSelectedOrgId(defaultOrgId);
+        const org = orgs.find(o => o.id === defaultOrgId);
+        if (org) setOrganization(org);
+      } else if (user.organization_id) {
+        const org = await spectra.entities.Organization.get(user.organization_id);
+        if (org) setOrganization(org);
       }
     };
     loadData();
   }, []);
+
+  // When super admin switches org, load that org's data
+  useEffect(() => {
+    if (!selectedOrgId || !allOrgs.length) return;
+    const org = allOrgs.find(o => o.id === selectedOrgId);
+    if (org) setOrganization(org);
+  }, [selectedOrgId]);
 
   const isAdmin = currentUser?.custom_role === 'admin' || currentUser?.is_super_admin || currentUser?.role === 'admin';
   const isSuperAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
@@ -145,7 +162,20 @@ export default function SettingsPage() {
         <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
           <SettingsIcon className="w-5 h-5 text-slate-400" /> Settings
         </h1>
-        {organization && (
+        {isSuperAdmin && allOrgs.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Organization</span>
+            <select
+              value={selectedOrgId || ""}
+              onChange={(e) => setSelectedOrgId(e.target.value)}
+              className="px-2 py-1.5 bg-[#1A2238] border border-white/20 rounded text-[12px] text-slate-100 hover:border-white/40 transition-colors"
+            >
+              {allOrgs.map(org => (
+                <option key={org.id} value={org.id}>{org.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : organization && (
           <span className="text-xs text-slate-500 bg-[#1A2238] px-3 py-1.5 rounded-lg border border-white/[0.06]">
             Organization: <span className="text-slate-200 font-medium">{organization.name}</span>
           </span>
@@ -188,7 +218,7 @@ export default function SettingsPage() {
         {isAdmin && (
           <TabsContent value="organization">
             {organization ? (
-              <OrgSettings organization={organization} isSuperAdmin={isSuperAdmin} />
+              <OrgSettings organization={organization} isSuperAdmin={isSuperAdmin} onUpdated={setOrganization} />
             ) : (
               <p className="text-xs text-slate-500">No organization assigned.</p>
             )}

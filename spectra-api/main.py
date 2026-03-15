@@ -10,11 +10,18 @@ Usage:
     cp .env.example .env   # fill in ClickHouse credentials
     uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 """
-from fastapi import FastAPI
+import uuid
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from config import SUPER_ADMIN, DEFAULT_ORG
+from pydantic import BaseModel
+from typing import Optional
+from sqlalchemy.orm import Session
+from config import SUPER_ADMIN
+from database import get_db
+from models import Organization
+from seed import init_db
 
-from routers import rsus, alerts, clusters, dashboard
+from routers import rsus, alerts, clusters, dashboard, timeline
 
 app = FastAPI(
     title="Spectra API",
@@ -22,12 +29,15 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Seed tables + initial data on startup
+init_db()
+
 # ── CORS — allow Vite dev server + production ────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:5174",
                    "http://localhost:3000", "http://localhost:8000",
-                   "https://*.vercel.app", "*"],
+                   "https://*.vercel.app", "https://soc.flycomm.co"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,6 +48,7 @@ app.include_router(rsus.router)
 app.include_router(alerts.router)
 app.include_router(clusters.router)
 app.include_router(dashboard.router)
+app.include_router(timeline.router)
 
 
 # ── Auth endpoints (hardcoded super-admin — Phase 1) ─────────────
@@ -52,15 +63,79 @@ def logout():
     return {"ok": True}
 
 
-# ── Organizations ─────────────────────────────────────────────────
+# ── Organization models ────────────────────────────────────────────
+class OrgCreate(BaseModel):
+    name: str
+    slug: Optional[str] = None
+    plan_tier: Optional[str] = "standard"
+    max_rsus: Optional[int] = 10
+
+class OrgUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    plan_tier: Optional[str] = None
+    max_rsus: Optional[int] = None
+    is_demo: Optional[bool] = None
+
+def _org_dict(o: Organization) -> dict:
+    return {"id": o.id, "name": o.name, "slug": o.slug,
+            "plan_tier": o.plan_tier, "max_rsus": o.max_rsus,
+            "is_demo": bool(o.is_demo)}
+
+
+# ── Organizations CRUD (SQLite) ────────────────────────────────────
 @app.get("/api/organizations")
-def list_orgs():
-    return [DEFAULT_ORG]
+def list_orgs(id: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(Organization)
+    if id:
+        q = q.filter_by(id=id)
+    return [_org_dict(o) for o in q.all()]
+
+
+@app.post("/api/organizations")
+def create_org(body: OrgCreate, db: Session = Depends(get_db)):
+    slug = body.slug or body.name.lower().replace(" ", "-")
+    if db.query(Organization).filter_by(slug=slug).first():
+        raise HTTPException(status_code=409, detail=f"Slug '{slug}' already exists")
+    o = Organization(id=str(uuid.uuid4()), name=body.name, slug=slug,
+                     plan_tier=body.plan_tier, max_rsus=body.max_rsus)
+    db.add(o)
+    db.commit()
+    db.refresh(o)
+    return _org_dict(o)
 
 
 @app.get("/api/organizations/{org_id}")
-def get_org(org_id: str):
-    return DEFAULT_ORG
+def get_org(org_id: str, db: Session = Depends(get_db)):
+    o = db.query(Organization).filter_by(id=org_id).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return _org_dict(o)
+
+
+@app.put("/api/organizations/{org_id}")
+def update_org(org_id: str, body: OrgUpdate, db: Session = Depends(get_db)):
+    o = db.query(Organization).filter_by(id=org_id).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if body.name      is not None: o.name      = body.name
+    if body.slug      is not None: o.slug      = body.slug
+    if body.plan_tier is not None: o.plan_tier = body.plan_tier
+    if body.max_rsus  is not None: o.max_rsus  = body.max_rsus
+    if body.is_demo   is not None: o.is_demo   = body.is_demo
+    db.commit()
+    db.refresh(o)
+    return _org_dict(o)
+
+
+@app.delete("/api/organizations/{org_id}")
+def delete_org(org_id: str, db: Session = Depends(get_db)):
+    o = db.query(Organization).filter_by(id=org_id).first()
+    if not o:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    db.delete(o)
+    db.commit()
+    return {"ok": True, "id": org_id}
 
 
 # ── Health check ──────────────────────────────────────────────────

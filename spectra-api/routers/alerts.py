@@ -30,7 +30,10 @@ WHERE source = '{MODEM_SOURCE}'
   AND deviceInfo_imei != ''
 GROUP BY imei
 """
-    rows = run_query(sql)
+    try:
+        rows = run_query(sql)
+    except Exception:
+        return []
     alerts = []
     for row in rows:
         imei     = row.get("imei", "")
@@ -91,7 +94,10 @@ HAVING n >= 10
 ORDER BY hour DESC, avg_rsrp ASC
 LIMIT 30
 """
-    rows = run_query(sql)
+    try:
+        rows = run_query(sql)
+    except Exception:
+        return []
     alerts = []
     for row in rows:
         imei  = row.get("imei", "")
@@ -148,7 +154,10 @@ HAVING tac_count >= 2
 ORDER BY tac_count DESC, n DESC
 LIMIT 20
 """
-    rows = run_query(sql)
+    try:
+        rows = run_query(sql)
+    except Exception:
+        return []
     alerts = []
     for row in rows:
         imei      = row.get("imei", "")
@@ -201,7 +210,10 @@ WHERE source = '{MODEM_SOURCE}'
 GROUP BY imei
 ORDER BY max_temp DESC
 """
-    rows = run_query(sql)
+    try:
+        rows = run_query(sql)
+    except Exception:
+        return []
     alerts = []
     for row in rows:
         imei     = row.get("imei", "")
@@ -241,15 +253,12 @@ def list_alerts(
     rsu_id: Optional[str] = Query(None),
     limit: int = Query(100, ge=1, le=500),
 ):
-    """Return all computed anomaly alerts."""
-    try:
-        alerts: List[dict] = []
-        alerts += _offline_alerts()
-        alerts += _tac_anomaly_alerts()
-        alerts += _signal_anomaly_alerts()
-        alerts += _temp_alerts()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Return all computed anomaly alerts. Returns [] when ClickHouse is unavailable."""
+    alerts: List[dict] = []
+    alerts += _offline_alerts()
+    alerts += _tac_anomaly_alerts()
+    alerts += _signal_anomaly_alerts()
+    alerts += _temp_alerts()
 
     # Apply filters
     if status:

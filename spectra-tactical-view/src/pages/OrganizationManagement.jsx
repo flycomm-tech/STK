@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,16 +22,16 @@ export default function OrganizationManagement() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    spectra.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: organizations = [], isLoading } = useQuery({
     queryKey: ['organizations'],
-    queryFn: () => base44.entities.Organization.list(),
+    queryFn: () => spectra.entities.Organization.list(),
   });
 
   const createOrgMutation = useMutation({
-    mutationFn: (name) => base44.entities.Organization.create({ name, is_demo: false }),
+    mutationFn: (name) => spectra.entities.Organization.create({ name, is_demo: false }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
       setCreateOrgOpen(false);

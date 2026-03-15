@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { X, Radio, Clock, Cpu, MapPinned, Pencil } from "lucide-react";
 import { useAlerts } from "../AlertContext";
 import StatusDot from "../spectra/StatusDot";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import moment from "moment";
 import { motion } from "framer-motion";
 
-export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing, onEditChange, isAdmin }) {
+export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing, onEditChange, isAdmin, onSaved }) {
   const { alerts } = useAlerts();
   const [cluster, setCluster] = useState(null);
   const [clusters, setClusters] = useState([]);
@@ -25,7 +25,7 @@ export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing
   useEffect(() => {
     const loadClusters = async () => {
       // Super admin sees all clusters, regular users see only their org's clusters
-      const allClusters = await base44.entities.Cluster.list();
+      const allClusters = await spectra.entities.Cluster.list();
       setClusters(allClusters);
       if (rsu.cluster_id) {
         const found = allClusters.find(c => c.id === rsu.cluster_id);
@@ -42,8 +42,8 @@ export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing
 
   // Subscribe to RSU updates
   useEffect(() => {
-    const unsubscribe = base44.entities.RSU.subscribe((event) => {
-      if (event.id === rsu.id) {
+    const unsubscribe = spectra.entities.RSU.subscribe((event) => {
+      if (event.data?.id === rsu.id) {
         setCurrentRsu(event.data);
       }
     });
@@ -53,7 +53,7 @@ export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing
   const handleStatusChange = async (newStatus) => {
     try {
       setEditRsu({ ...editRsu, status: newStatus });
-      await base44.entities.RSU.update(rsu.id, { status: newStatus });
+      await spectra.entities.RSU.update(rsu.id, { status: newStatus });
     } catch (error) {
       console.error("Failed to update RSU status:", error);
     }
@@ -61,12 +61,13 @@ export default function RSUDetailPanel({ rsu, onClose, organizationId, isEditing
 
   const handleSaveEdit = async () => {
     const updateData = {
-      device_id: editRsu.device_id,
       location_name: editRsu.location_name,
       status: editRsu.status,
       cluster_id: editRsu.cluster_id || ""
     };
-    await base44.entities.RSU.update(rsu.id, updateData);
+    const updated = await spectra.entities.RSU.update(rsu.id, updateData);
+    setCurrentRsu(updated);
+    onSaved?.(updated);
     onEditChange(null);
   };
   

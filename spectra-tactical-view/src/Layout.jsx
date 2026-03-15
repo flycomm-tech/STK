@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "./utils";
 import {
-  LayoutDashboard, Radio, ShieldAlert, Map, BarChart3, Settings,
-  ChevronLeft, ChevronRight, LogOut, Radar, Building2, Shield, Hexagon
+  LayoutDashboard, Radio, ShieldAlert, BarChart3, Settings,
+  ChevronLeft, ChevronRight, LogOut, Building2, Hexagon
 } from "lucide-react";
 import { AlertProvider, useAlerts } from "./components/AlertContext";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import PlatformHeader from "./components/PlatformHeader";
 
 const NAV_ITEMS = [
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
   { page: "RSUs", label: "RSUs", icon: Radio },
   { page: "Clusters", label: "Clusters", icon: Hexagon },
   { page: "Alerts", label: "Alerts", icon: ShieldAlert },
-  { page: "CoverageMap", label: "Coverage Map", icon: Map },
   { page: "Analytics", label: "Analytics", icon: BarChart3 },
   { page: "Settings", label: "Settings", icon: Settings },
 ];
@@ -43,23 +42,17 @@ function Sidebar({ collapsed, setCollapsed, currentPage, currentUser, orgName })
       }`}
     >
       {/* Logo + Org Name */}
-      <div className="h-14 flex items-center px-4 border-b border-white/[0.06]">
+      <div className="h-32 flex items-center px-3 border-b border-white/[0.06]">
         <button onClick={() => setCollapsed(!collapsed)} className="flex items-center gap-2 w-full">
           {!collapsed ? <PlatformHeader /> : (
-            <img 
-              src="/Favicon.png"
+            <img
+              src="/fcic.png"
               alt="Spectra"
-              className="w-8 h-8 object-contain flex-shrink-0 brightness-200 invert opacity-90"
+              className="w-8 h-8 object-contain flex-shrink-0"
             />
           )}
         </button>
       </div>
-      {!collapsed && orgName && (
-        <div className="px-4 py-2 border-b border-white/[0.06]">
-          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Organization</p>
-          <p className="text-[12px] text-slate-200 font-medium truncate">{orgName}</p>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-0.5">
@@ -118,6 +111,22 @@ function Sidebar({ collapsed, setCollapsed, currentPage, currentUser, orgName })
         )}
       </nav>
 
+      {/* Spectra — switch to Analysis Suite */}
+      <div className="px-2 pb-2">
+        <a
+          href="http://localhost:8000"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border border-emerald-500/20 text-emerald-400/80 hover:text-emerald-300 hover:bg-emerald-500/[0.06] hover:border-emerald-400/30"
+          title="Spectra Analysis Suite"
+        >
+          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M19.78 4.22l-2.12 2.12M6.34 17.66l-2.12 2.12"/>
+          </svg>
+          {!collapsed && <span>Analysis Suite</span>}
+        </a>
+      </div>
+
       {/* Footer */}
       <div className="border-t border-white/[0.06] p-3">
         {!collapsed ? (
@@ -137,8 +146,8 @@ function Sidebar({ collapsed, setCollapsed, currentPage, currentUser, orgName })
             <div className="flex items-center justify-between gap-2">
               <button
                 onClick={async () => {
-                  await base44.auth.logout();
-                  base44.auth.redirectToLogin('/');
+                  await spectra.auth.logout();
+                  spectra.auth.redirectToLogin();
                 }}
                 className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors font-medium"
               >
@@ -160,8 +169,8 @@ function Sidebar({ collapsed, setCollapsed, currentPage, currentUser, orgName })
             </div>
             <button
               onClick={async () => {
-                await base44.auth.logout();
-                base44.auth.redirectToLogin('/');
+                await spectra.auth.logout();
+                spectra.auth.redirectToLogin();
               }}
               className="w-full flex justify-center p-1 text-slate-600 hover:text-red-400 transition-colors"
             >
@@ -188,10 +197,10 @@ export default function Layout({ children, currentPageName }) {
   React.useEffect(() => {
     const loadUserAndOrg = async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await spectra.auth.me();
         setCurrentUser(user);
         if (user.organization_id) {
-          const orgs = await base44.entities.Organization.filter({ id: user.organization_id });
+          const orgs = await spectra.entities.Organization.filter({ id: user.organization_id });
           if (orgs.length > 0) setOrgName(orgs[0].name);
         }
       } catch (e) {}

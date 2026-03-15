@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import ClusterRsuManager from "./ClusterRsuManager";
 
 const COLOR_OPTIONS = [
@@ -27,7 +27,7 @@ export default function AddClusterDialog({ open, onOpenChange, organizationId, p
   const handleCreate = async () => {
     if (!name.trim()) return;
     setSaving(true);
-    const created = await base44.entities.Cluster.create({
+    const created = await spectra.entities.Cluster.create({
       name: name.trim(),
       description: description.trim(),
       color,

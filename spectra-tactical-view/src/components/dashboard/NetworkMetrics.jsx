@@ -23,7 +23,7 @@ export default function NetworkMetrics({ rsuStatus = "online" }) {
       const m = generateSignalMetrics();
       setCurrent(m);
       setHistory(prev => [...prev.slice(-19), { latency: m.latency, jitter: m.jitter }]);
-    }, 2000);
+    }, 8000);
     return () => clearInterval(iv);
   }, []);
 

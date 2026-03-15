@@ -1,5 +1,27 @@
-*.csv
-*.CSV
-.DS_Store
+# Secrets — never commit
+.env
+bd.env
+spectra-api/.env
+*.env
+
+# SQLite databases
+spectra-api/spectra.db
+*.db
+
+# Python
 __pycache__/
 *.pyc
+
+# macOS
+.DS_Store
+
+# Python virtualenv
+.venv/
+spectra-api/.venv/
+
+# Data files
+*.csv
+*.CSV
+
+# Node
+node_modules/

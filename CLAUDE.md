@@ -78,13 +78,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Timestamp | timestamp, time, date, datetime        |
 | Count     | counted, count, cnt, weight            |
 
-### ClickHouse Schema (SQL Builder)
+### ClickHouse Schema — Full `measurements` Table
+
+**Table:** `measurements` | ~530M+ rows total
+
+#### Coordinate access
 ```sql
--- Table: measurements
--- Geo column: location_geo_coordinates (Tuple)
--- MCC column: network_mcc
--- Uses: pointInPolygon(location_geo_coordinates, [...])
+location_geo_coordinates          -- Type: Point
+location_geo_coordinates.1        -- longitude
+location_geo_coordinates.2        -- latitude
+-- Also available: bin_lat, bin_lon (floored), location_tileId_1/10/100
 ```
+
+#### Key field groups
+| Group | Fields |
+|-------|--------|
+| **Identity** | `id`, `timestamp`, `createdAt`, `source`, `sample_id` |
+| **Location** | `location_accuracy`, `location_altitude`, `location_speed`, `location_heading`, `location_geo_coordinates`, `loc_timestamp` |
+| **GPS Satellites** | `satellites_gps_satellitesNo`, `satellites_glonass_satellitesNo`, `satellites_galileo_satellitesNo`, `satellites_beidou_satellitesNo`, `satellites_qzss_satellitesNo`, `satellites_gnss_satellitesNo` + `_satellitesList` arrays |
+| **Device** | `deviceInfo_deviceId`, `deviceInfo_deviceModel`, `deviceInfo_imei`, `deviceInfo_imsi`, `deviceInfo_deviceReleaseVersion`, `deviceInfo_modemVersion`, `deviceInfo_uptime`, `deviceInfo_temperature`, `deviceInfo_appVersion` |
+| **Cell** | `cell_ecgi`, `cell_eci`, `cell_cid`, `cell_ci`, `cell_lac`, `cell_tac`, `cell_pci`, `cell_psc`, `cell_nci`, `cell_enb`, `cell_cgi`, `cell_bsic`, `cell_rnc` |
+| **Network** | `network_mcc`, `network_mnc`, `network_PLMN`, `network_operator`, `network_iso`, `network_isRoaming`, `network_VPLMN` + virtual carrier fields |
+| **Signal** | `signal_rsrp` (Int32, always set), `signal_rsrq`, `signal_rssi`, `signal_snr`, `signal_rscp`, `signal_ecio`, `signal_cqi`, `signal_ssSinr`, `signal_csiRsrp`, `signal_timingAdvance`, `signal_txPower` |
+| **Band** | `band_number`, `band_name`, `band_duplexMode`, `band_channelNumber`, `band_bandwidth`, `band_downlinkEarfcn`, `band_downlinkUarfcn`, `band_bands_list` |
+| **Tech** | `tech` (LowCardinality: NR, LTE, WCDMA, GSM) |
+| **Internet** | `internet_downloadMbps`, `internet_uploadMbps`, `internet_latency`, `internet_jitter`, `internet_latencyLoss` |
+| **Environment** | `environment_type`, `environment_floor`, `environment_hasWindow`, `building_info_floor`, `building_info_indoor` |
+
+#### Source field values (confirmed data)
+| source | ~Rows | Notes |
+|--------|-------|-------|
+| `''` (blank) | 513M | Oldest data, pre-2024 |
+| `nperf` | 7M | Speed test app |
+| `flycomm` | 3.8M | Main SDK |
+| `modem` | 3.2M | Teltonika RSU routers |
+| `flycomm-os` | 2.4M | OS-level SDK |
+| `hopon` | 934K | Partner app |
+| `Safe2Talk` | 233K | Partner app |
+| `WingZ` | 158K | Partner app |
+| `FlycommContainer` | 18K | Container SDK |
+| `wavebrook` | 1.5K | Partner |
+
+#### Modem source specifics (`source = 'modem'`)
+- Devices: **Teltonika RUTX5000** (5G) and **RUTX1200** (4G) — fixed RSU routers
+- Only cellular tech: LTE (~3.19M rows) + WCDMA (482 rows)
+- **NO WiFi fields in schema** — WiFi scanning is not part of the measurements table
+- GPS quality: avg accuracy 0.67m, avg 11.3 GPS satellites tracked
+- Extra fields populated: `deviceInfo_imei`, `deviceInfo_temperature`, `deviceInfo_uptime`, `deviceInfo_modemVersion`
+- 7 unique devices (by IMEI), all located in Israel
+
+#### Important query notes
+- `location_geo_coordinates` is Point type — access lon/lat as `.1`/`.2`
+- `signal_rsrp` is `Int32` (NOT NULL, defaults to 0) — filter `signal_rsrp != 0` for real data
+- `cell_ecgi` is NULL for modem rows (use `cell_cgi` instead for 2G/3G global cell ID)
+- WiFi data does NOT exist anywhere in measurements — no wifi_ columns at all
 
 ### TAC Anomaly Detector JSON Format
 Expected columns from ClickHouse export:

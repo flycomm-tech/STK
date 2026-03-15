@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -36,21 +36,21 @@ export default function ClustersPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const user = await base44.auth.me();
+      const user = await spectra.auth.me();
       setCurrentUser(user);
       const isSuperAdmin = user.is_super_admin || user.role === 'admin';
       const [fetchedClusters, fetchedRsus, fetchedOrgs] = await Promise.all([
         isSuperAdmin
-          ? base44.entities.Cluster.list()
+          ? spectra.entities.Cluster.list()
           : (user.organization_id
-            ? base44.entities.Cluster.filter({ organization_id: user.organization_id })
-            : base44.entities.Cluster.list()),
+            ? spectra.entities.Cluster.filter({ organization_id: user.organization_id })
+            : spectra.entities.Cluster.list()),
         isSuperAdmin
-          ? base44.entities.RSU.list()
+          ? spectra.entities.RSU.list()
           : (user.organization_id
-            ? base44.entities.RSU.filter({ organization_id: user.organization_id })
-            : base44.entities.RSU.list()),
-        isSuperAdmin ? base44.entities.Organization.list() : Promise.resolve([]),
+            ? spectra.entities.RSU.filter({ organization_id: user.organization_id })
+            : spectra.entities.RSU.list()),
+        isSuperAdmin ? spectra.entities.Organization.list() : Promise.resolve([]),
       ]);
       setClusters(fetchedClusters);
       setRsus(fetchedRsus);
@@ -94,13 +94,13 @@ export default function ClustersPage() {
     setSaving(true);
     if (editCluster) {
       const { organization_id, ...updateData } = formData;
-      const updated = await base44.entities.Cluster.update(editCluster.id, {
+      const updated = await spectra.entities.Cluster.update(editCluster.id, {
         ...updateData,
         organization_id: organization_id || editCluster.organization_id,
       });
       setClusters(prev => prev.map(c => c.id === editCluster.id ? { ...c, ...updated } : c));
     } else {
-      const created = await base44.entities.Cluster.create({
+      const created = await spectra.entities.Cluster.create({
         ...formData,
         organization_id: formData.organization_id || currentUser.organization_id,
       });
@@ -114,8 +114,8 @@ export default function ClustersPage() {
     if (!deleteCluster) return;
     // Unassign RSUs from this cluster first
     const clusterRsus = rsus.filter(r => r.cluster_id === deleteCluster.id);
-    await Promise.all(clusterRsus.map(r => base44.entities.RSU.update(r.id, { cluster_id: "" })));
-    await base44.entities.Cluster.delete(deleteCluster.id);
+    await Promise.all(clusterRsus.map(r => spectra.entities.RSU.update(r.id, { cluster_id: "" })));
+    await spectra.entities.Cluster.delete(deleteCluster.id);
     setClusters(prev => prev.filter(c => c.id !== deleteCluster.id));
     setRsus(prev => prev.map(r => r.cluster_id === deleteCluster.id ? { ...r, cluster_id: "" } : r));
     setDeleteCluster(null);

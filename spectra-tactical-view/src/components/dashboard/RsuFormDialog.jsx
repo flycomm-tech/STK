@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-export default function RsuFormDialog({ open, onOpenChange, editRsu, clusters, currentUser, onSaved }) {
+export default function RsuFormDialog({ open, onOpenChange, editRsu, clusters: clustersProp, currentUser, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [fetchedClusters, setFetchedClusters] = useState([]);
+
+  // Fetch fresh clusters every time dialog opens so current assignment is shown correctly
+  useEffect(() => {
+    if (!open) return;
+    spectra.entities.Cluster.list()
+      .then(setFetchedClusters)
+      .catch(() => setFetchedClusters(clustersProp || []));
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -36,10 +45,10 @@ export default function RsuFormDialog({ open, onOpenChange, editRsu, clusters, c
     };
 
     if (editRsu) {
-      const updated = await base44.entities.RSU.update(editRsu.id, payload);
+      const updated = await spectra.entities.RSU.update(editRsu.id, payload);
       onSaved({ ...editRsu, ...payload, ...updated }, false);
     } else {
-      const created = await base44.entities.RSU.create(payload);
+      const created = await spectra.entities.RSU.create(payload);
       onSaved(created, true);
     }
     setSaving(false);
@@ -47,9 +56,8 @@ export default function RsuFormDialog({ open, onOpenChange, editRsu, clusters, c
 
   const update = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
-  // Filter clusters to show only those matching RSU's organization
-  const orgId = form.organization_id;
-  const filteredClusters = orgId ? clusters.filter(c => c.organization_id === orgId) : clusters;
+  // Show all clusters — org filtering causes confusion when clusters span organizations
+  const filteredClusters = fetchedClusters.length > 0 ? fetchedClusters : (clustersProp || []);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

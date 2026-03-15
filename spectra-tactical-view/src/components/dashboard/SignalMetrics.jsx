@@ -32,7 +32,7 @@ export default function SignalMetrics({ rsuStatus = "online" }) {
   const [metrics, setMetrics] = useState(generateSignalMetrics);
 
   useEffect(() => {
-    const iv = setInterval(() => setMetrics(generateSignalMetrics()), 2000);
+    const iv = setInterval(() => setMetrics(generateSignalMetrics()), 8000);
     return () => clearInterval(iv);
   }, []);
 

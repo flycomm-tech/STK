@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo, useState, useCallback } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { MapContainer, TileLayer, Marker, Popup, Polygon, CircleMarker, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useAlerts } from "../AlertContext";
 import StatusDot from "../spectra/StatusDot";
@@ -229,7 +229,30 @@ function MapContextMenuHandler({ onContextMenu, drawingMode }) {
   return null;
 }
 
-export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, organizationId, editingRsuId, isAdmin, isSuperAdmin }) {
+// ── Signal-coloured playback icons ───────────────────────────────
+function rsrpColor(rsrp) {
+  if (!rsrp || rsrp === 0) return "#94a3b8";
+  if (rsrp >= -85) return "#00E5A0";   // green — good
+  if (rsrp >= -100) return "#FFB020";  // amber — fair
+  return "#FF2D55";                    // red   — poor
+}
+
+function makePlaybackIcon(rsrp, tech) {
+  const color = rsrpColor(rsrp);
+  const label = tech ? tech.slice(0, 2) : "";
+  return L.divIcon({
+    className: "",
+    html: `<div style="position:relative;width:28px;height:28px;">
+      <div style="position:absolute;inset:0;background:${color};clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);opacity:0.85;"></div>
+      <div style="position:absolute;inset:4px;background:#0A0F1E;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);"></div>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:${color};font-family:monospace;">${label}</div>
+    </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, organizationId, editingRsuId, isAdmin, isSuperAdmin, rsuOverride, playbackFrame, timelineMode }) {
   const { alerts } = useAlerts();
   const [rsus, setRsus] = useState([]);
   const [clusters, setClusters] = useState([]);
@@ -275,10 +298,10 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
     const loadData = async () => {
       const [fetchedRsus, fetchedAllClusters, fetchedOrgs] = await Promise.all([
         organizationId 
-          ? base44.entities.RSU.filter({ organization_id: organizationId })
-          : base44.entities.RSU.list(),
-        base44.entities.Cluster.list(),
-        base44.entities.Organization.list()
+          ? spectra.entities.RSU.filter({ organization_id: organizationId })
+          : spectra.entities.RSU.list(),
+        spectra.entities.Cluster.list(),
+        spectra.entities.Organization.list()
       ]);
       setRsus(fetchedRsus);
       // For map display, filter clusters by org; for search, keep all
@@ -293,25 +316,33 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
   }, [organizationId]);
 
   useEffect(() => {
-    const unsubRsu = base44.entities.RSU.subscribe((event) => {
-      if (event.type === 'update') setRsus(prev => prev.map(r => r.id === event.id ? event.data : r));
-      else if (event.type === 'create') setRsus(prev => [...prev, event.data]);
-      else if (event.type === 'delete') setRsus(prev => prev.filter(r => r.id !== event.id));
+    const unsubRsu = spectra.entities.RSU.subscribe((event) => {
+      const id = event.data?.id;
+      if (event.type === 'update') setRsus(prev => prev.map(r => r.id === id ? event.data : r));
+      else if (event.type === 'create') setRsus(prev => prev.some(r => r.id === id) ? prev : [...prev, event.data]);
+      else if (event.type === 'delete') setRsus(prev => prev.filter(r => r.id !== id));
     });
-    const unsubCluster = base44.entities.Cluster.subscribe((event) => {
+    const unsubCluster = spectra.entities.Cluster.subscribe((event) => {
+      const id = event.data?.id;
       if (event.type === 'update') {
-        setClusters(prev => prev.map(c => c.id === event.id ? event.data : c));
-        setAllClusters(prev => prev.map(c => c.id === event.id ? event.data : c));
+        setClusters(prev => prev.map(c => c.id === id ? event.data : c));
+        setAllClusters(prev => prev.map(c => c.id === id ? event.data : c));
       } else if (event.type === 'create') {
-        setClusters(prev => [...prev, event.data]);
-        setAllClusters(prev => [...prev, event.data]);
+        setClusters(prev => prev.some(c => c.id === id) ? prev : [...prev, event.data]);
+        setAllClusters(prev => prev.some(c => c.id === id) ? prev : [...prev, event.data]);
       } else if (event.type === 'delete') {
-        setClusters(prev => prev.filter(c => c.id !== event.id));
-        setAllClusters(prev => prev.filter(c => c.id !== event.id));
+        setClusters(prev => prev.filter(c => c.id !== id));
+        setAllClusters(prev => prev.filter(c => c.id !== id));
       }
     });
     return () => { unsubRsu(); unsubCluster(); };
   }, []);
+
+  // When an RSU is saved externally (e.g. from RSUDetailPanel), update local rsus immediately
+  useEffect(() => {
+    if (!rsuOverride) return;
+    setRsus(prev => prev.map(r => r.id === rsuOverride.id ? rsuOverride : r));
+  }, [rsuOverride]);
 
   // Merge highlighted cluster into clusters for polygon rendering
   const displayClusters = useMemo(() => {
@@ -345,14 +376,14 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
       alert("Device ID and Organization are required");
       return;
     }
-    const created = await base44.entities.RSU.create(newRsu);
+    const created = await spectra.entities.RSU.create(newRsu);
     setRsus(prev => [...prev, created]);
     setShowAddDialog(false);
   };
 
   const handleRsuDragEnd = async (rsu, newLat, newLng) => {
     if (editingRsuId !== rsu.id) return;
-    await base44.entities.RSU.update(rsu.id, {
+    await spectra.entities.RSU.update(rsu.id, {
       latitude: parseFloat(newLat.toFixed(6)),
       longitude: parseFloat(newLng.toFixed(6))
     });
@@ -395,7 +426,7 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
     
     if (editDrawingForCluster) {
       // Saving polygon for existing cluster
-      const updated = await base44.entities.Cluster.update(editDrawingForCluster, { polygon: drawingPoints });
+      const updated = await spectra.entities.Cluster.update(editDrawingForCluster, { polygon: drawingPoints });
       setClusters(prev => prev.map(c => c.id === editDrawingForCluster ? { ...c, ...updated } : c));
       setEditDrawingForCluster(null);
     } else {
@@ -431,7 +462,7 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
     } else {
       let clusterRsus = rsus.filter(r => r.cluster_id === cluster.id);
       if (clusterRsus.length === 0) {
-        clusterRsus = await base44.entities.RSU.filter({ cluster_id: cluster.id });
+        clusterRsus = await spectra.entities.RSU.filter({ cluster_id: cluster.id });
       }
       const valid = clusterRsus.filter(r => Number.isFinite(parseFloat(r.latitude)) && parseFloat(r.latitude) !== 0);
       points = valid.map(r => ({ lat: parseFloat(r.latitude), lng: parseFloat(r.longitude) }));
@@ -538,8 +569,29 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
 
         <AnomalyCircles rsus={rsus} />
 
+        {/* ── Playback RSU Markers (timeline mode) ── */}
+        {timelineMode && playbackFrame && playbackFrame.rsus && playbackFrame.rsus
+          .filter(r => r.lat && r.lng && r.lat !== 0 && r.lng !== 0)
+          .map(r => (
+            <Marker
+              key={`pb-${r.imei}`}
+              position={[r.lat, r.lng]}
+              icon={makePlaybackIcon(r.rsrp, r.tech)}
+            >
+              <Tooltip direction="top" offset={[0, -14]} className="spectra-tooltip">
+                <div className="bg-[#141B2E] text-slate-200 px-2.5 py-1.5 rounded border border-white/10 text-[11px] space-y-0.5">
+                  <p className="font-mono font-bold">{r.imei}</p>
+                  <p className="text-slate-400">{r.tech} · {r.operator}</p>
+                  <p className="font-mono" style={{ color: rsrpColor(r.rsrp) }}>RSRP {r.rsrp} dBm</p>
+                  <p className="text-slate-500">{r.samples} samples</p>
+                </div>
+              </Tooltip>
+            </Marker>
+          ))
+        }
+
         {/* RSU Markers */}
-        {showRsus && rsus.filter(r => Number.isFinite(parseFloat(r.latitude)) && Number.isFinite(parseFloat(r.longitude)) && parseFloat(r.latitude) !== 0).map(rsu => (
+        {showRsus && !timelineMode && rsus.filter(r => Number.isFinite(parseFloat(r.latitude)) && Number.isFinite(parseFloat(r.longitude)) && parseFloat(r.latitude) !== 0).map(rsu => (
           <Marker
             key={rsu.id}
             position={[rsu.latitude, rsu.longitude]}
@@ -613,20 +665,47 @@ export default function TacticalMap({ flyTarget, onRsuClick, selectedRsuId, orga
         />
       </div>
 
+      {/* Timeline mode overlay badge */}
+      {timelineMode && playbackFrame && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-emerald-500/10 border border-emerald-500/30 rounded-full px-4 py-1 text-[11px] font-mono text-emerald-400 backdrop-blur-md flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Replaying · {playbackFrame.t?.slice(0, 16).replace("T", " ")}
+          · {playbackFrame.rsus?.length ?? 0} RSUs
+        </div>
+      )}
+
       {/* Bottom Status Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-[1000] bg-[#0F1629]/90 backdrop-blur-md border-t border-white/[0.06] px-4 py-2 flex items-center gap-6 text-[11px]">
-        <div className="flex items-center gap-2">
-          <Radio className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-slate-400">RSUs Online:</span>
-          <span className="font-mono text-emerald-400 font-bold">{rsus.filter(r => r.status === "online").length}/{rsus.length}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-slate-400">Active Threats:</span>
-          <span className="font-mono text-red-400 font-bold">
-            {alerts?.filter(a => a.status === "active" && (a.severity === "critical" || a.severity === "high")).length || 0}
-          </span>
-        </div>
+        {timelineMode ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 font-medium">Timeline Playback</span>
+            </div>
+            <div className="flex items-center gap-4 text-slate-400">
+              {playbackFrame?.rsus?.map(r => (
+                <span key={r.imei} className="font-mono" style={{ color: rsrpColor(r.rsrp) }}>
+                  {r.imei.slice(-6)} {r.rsrp}dBm
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <Radio className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-slate-400">RSUs Online:</span>
+              <span className="font-mono text-emerald-400 font-bold">{rsus.filter(r => r.status === "online").length}/{rsus.length}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-slate-400">Active Threats:</span>
+              <span className="font-mono text-red-400 font-bold">
+                {alerts?.filter(a => a.status === "active" && (a.severity === "critical" || a.severity === "high")).length || 0}
+              </span>
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-slate-500">{mapCenter[0].toFixed(3)}°N {mapCenter[1].toFixed(3)}°E</span>
           <span className="text-slate-600">•</span>

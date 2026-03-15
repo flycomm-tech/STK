@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { spectra } from "@/api/spectraClient";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +13,7 @@ export default function ClusterRsuManager({ clusterId, organizationId }) {
     if (!organizationId) return;
     const load = async () => {
       setLoading(true);
-      const rsus = await base44.entities.RSU.filter({ organization_id: organizationId });
+      const rsus = await spectra.entities.RSU.filter({ organization_id: organizationId });
       setAllRsus(rsus);
       setLoading(false);
     };
@@ -24,12 +24,12 @@ export default function ClusterRsuManager({ clusterId, organizationId }) {
   const unassignedRsus = allRsus.filter(r => !r.cluster_id || r.cluster_id === "");
 
   const handleAssign = async (rsuId) => {
-    await base44.entities.RSU.update(rsuId, { cluster_id: clusterId });
+    await spectra.entities.RSU.update(rsuId, { cluster_id: clusterId });
     setAllRsus(prev => prev.map(r => r.id === rsuId ? { ...r, cluster_id: clusterId } : r));
   };
 
   const handleRemove = async (rsuId) => {
-    await base44.entities.RSU.update(rsuId, { cluster_id: "" });
+    await spectra.entities.RSU.update(rsuId, { cluster_id: "" });
     setAllRsus(prev => prev.map(r => r.id === rsuId ? { ...r, cluster_id: "" } : r));
   };
 
