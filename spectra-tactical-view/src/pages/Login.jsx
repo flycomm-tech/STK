@@ -44,7 +44,7 @@ export default function Login() {
       <div className="w-full max-w-sm p-8 rounded-2xl bg-[#0F1629] border border-white/[0.06] shadow-2xl">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <img src="/fcic.png" alt="Flycomm" className="w-16 h-16 mb-4 object-contain" />
+          <img src="/fcic.png" alt="Flycomm" className="w-36 h-36 mb-6 object-contain" />
           <h1 className="text-xl font-bold text-slate-100 tracking-tight">Spectra SOC</h1>
           <p className="text-sm text-slate-500 mt-1">Spectral Awareness Platform</p>
         </div>

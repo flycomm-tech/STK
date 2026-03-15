@@ -3,8 +3,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# On Vercel the filesystem is read-only except /tmp; fall back to local path in dev
-_default_db = os.path.join(os.path.dirname(__file__), "spectra.db")
+# On Vercel the filesystem is read-only except /tmp
+_local_db = os.path.join(os.path.dirname(__file__), "spectra.db")
+_vercel_db = "/tmp/spectra.db"
+_default_db = _vercel_db if os.getenv("VERCEL") else _local_db
 DB_PATH = os.getenv("SQLITE_PATH", _default_db)
 engine = create_engine(
     f"sqlite:///{DB_PATH}",
