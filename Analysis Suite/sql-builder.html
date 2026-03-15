@@ -1855,7 +1855,33 @@ async function viewOnMap() {
   }
 }
 
-// Analyze cell coverage using Random Forest / Isolation Forest
+// Coverage classification — client-side RSRP threshold analysis
+// Same logic as server.py Random Forest (which uses synthetic RSRP labels anyway)
+const _RSRP_THRESHOLDS = [["excellent", -80], ["good", -90], ["fair", -100], ["poor", -110], ["bad", -999]];
+const _COVERAGE_COLORS = { excellent: "#22c55e", good: "#84cc16", fair: "#eab308", poor: "#f97316", bad: "#dc2626" };
+const _COVERAGE_SCORES = { excellent: 95, good: 75, fair: 50, poor: 25, bad: 5 };
+
+function classifyCoverage(cell) {
+  const rsrp = parseFloat(cell.avg_rsrp || cell.signal_rsrp);
+  const samples = parseFloat(cell.counted || cell.samples || cell.count || 1) || 1;
+  let level = "bad";
+  if (!isNaN(rsrp) && rsrp !== 0) {
+    for (const [lbl, threshold] of _RSRP_THRESHOLDS) { if (rsrp >= threshold) { level = lbl; break; } }
+  } else {
+    if (samples >= 500) level = "excellent";
+    else if (samples >= 100) level = "good";
+    else if (samples >= 20) level = "fair";
+    else if (samples >= 5) level = "poor";
+    else level = "bad";
+  }
+  return {
+    lat: cell.latitude || cell.lat, lon: cell.longitude || cell.lon,
+    enb: cell.cell_enb, eci: cell.cell_eci, mcc: cell.network_mcc, mnc: cell.network_mnc,
+    samples, avg_rsrp: rsrp || null,
+    coverage_level: level, coverage_color: _COVERAGE_COLORS[level], coverage_score: _COVERAGE_SCORES[level],
+  };
+}
+
 async function analyzeCoverage() {
   if (!lastQueryResults?.data?.length) {
     alert('Please execute a Cell/eNB Search query first.');
@@ -1865,44 +1891,32 @@ async function analyzeCoverage() {
   const resultsContainer = document.getElementById('results-container');
   const resultsMeta = document.getElementById('results-meta');
   document.getElementById('results-section').classList.add('visible');
-  resultsContainer.innerHTML = '<p style="color:var(--cyan);padding:20px;text-align:center;">🧠 Running Random Forest analysis...</p>';
+  resultsContainer.innerHTML = '<p style="color:var(--cyan);padding:20px;text-align:center;">🧠 Running coverage analysis...</p>';
 
   try {
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      throw new Error('ML Analysis requires the local server (python3 server.py). Not available in hosted mode.');
-    }
-    const response = await fetch('http://localhost:8000/ml/coverage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cells: lastQueryResults.data })
-    });
+    const cells = lastQueryResults.data;
+    const results = cells.map(classifyCoverage);
+    const hasRsrp = results.some(r => r.avg_rsrp !== null);
+    const stats = { excellent: 0, good: 0, fair: 0, poor: 0, bad: 0 };
+    results.forEach(r => { if (stats[r.coverage_level] !== undefined) stats[r.coverage_level]++; });
 
-    const result = await response.json();
-
-    if (result.error) {
-      throw new Error(result.error);
-    }
-
-    // Coverage stats from new response format
-    const stats = result.coverage_stats || {};
     const poorCount = (stats.poor || 0) + (stats.bad || 0);
     const goodCount = (stats.excellent || 0) + (stats.good || 0);
 
-    resultsMeta.textContent = `${result.total_cells} cells analyzed - Coverage: ${goodCount} good, ${stats.fair || 0} fair, ${poorCount} poor`;
+    resultsMeta.textContent = `${results.length} cells analyzed - Coverage: ${goodCount} good, ${stats.fair || 0} fair, ${poorCount} poor`;
 
-    // Show summary and open map
     resultsContainer.innerHTML = `
       <div style="padding:20px;text-align:center;">
         <div style="margin-bottom:16px;padding:16px;background:var(--dark);border-radius:12px;">
           <div style="display:flex;gap:24px;justify-content:center;flex-wrap:wrap;">
-            <div><div style="font-size:32px;font-weight:700;color:var(--cyan)">${result.total_cells}</div><div style="color:var(--sub);font-size:12px">cells analyzed</div></div>
-            <div><div style="font-size:32px;font-weight:700;color:#22c55e">${stats.excellent || 0}</div><div style="color:var(--sub);font-size:12px">excellent</div></div>
-            <div><div style="font-size:32px;font-weight:700;color:#84cc16">${stats.good || 0}</div><div style="color:var(--sub);font-size:12px">good</div></div>
-            <div><div style="font-size:32px;font-weight:700;color:#eab308">${stats.fair || 0}</div><div style="color:var(--sub);font-size:12px">fair</div></div>
-            <div><div style="font-size:32px;font-weight:700;color:#f97316">${stats.poor || 0}</div><div style="color:var(--sub);font-size:12px">poor</div></div>
-            <div><div style="font-size:32px;font-weight:700;color:#dc2626">${stats.bad || 0}</div><div style="color:var(--sub);font-size:12px">bad</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:var(--cyan)">${results.length}</div><div style="color:var(--sub);font-size:12px">cells analyzed</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:#22c55e">${stats.excellent}</div><div style="color:var(--sub);font-size:12px">excellent</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:#84cc16">${stats.good}</div><div style="color:var(--sub);font-size:12px">good</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:#eab308">${stats.fair}</div><div style="color:var(--sub);font-size:12px">fair</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:#f97316">${stats.poor}</div><div style="color:var(--sub);font-size:12px">poor</div></div>
+            <div><div style="font-size:32px;font-weight:700;color:#dc2626">${stats.bad}</div><div style="color:var(--sub);font-size:12px">bad</div></div>
           </div>
-          <div style="margin-top:12px;color:var(--accent);font-size:13px">Model: <strong>${result.model}</strong> ${result.has_rsrp ? '(RSRP data available)' : '(No RSRP - using sample density)'}</div>
+          <div style="margin-top:12px;color:var(--accent);font-size:13px">Model: <strong>RSRP Coverage Classifier</strong> ${hasRsrp ? '(RSRP data available)' : '(No RSRP - using sample density)'}</div>
         </div>
         <p style="color:var(--green);font-size:14px;">✓ Opening coverage map with color-coded predictions...</p>
       </div>
@@ -1911,37 +1925,21 @@ async function analyzeCoverage() {
     // Build CSV with coverage data for Signal Map
     const columns = ['latitude', 'longitude', 'cell_enb', 'cell_eci', 'network_mcc', 'network_mnc', 'counted', 'avg_rsrp', 'coverage_level', 'coverage_color', 'coverage_score', 'network_operator'];
     let csv = columns.join(',') + '\n';
-    result.results.forEach(cell => {
-      const values = [
-        cell.lat,
-        cell.lon,
-        cell.enb || '',
-        cell.eci || '',
-        cell.mcc || '',
-        cell.mnc || '',
-        cell.samples || 1,
-        cell.avg_rsrp || '',
-        cell.coverage_level || '',
-        cell.coverage_color || '',
-        cell.coverage_score || 0,
-        cell.coverage_level ? cell.coverage_level.toUpperCase() : 'UNKNOWN'
-      ];
-      csv += values.join(',') + '\n';
+    results.forEach(cell => {
+      csv += [cell.lat, cell.lon, cell.enb || '', cell.eci || '', cell.mcc || '', cell.mnc || '',
+              cell.samples || 1, cell.avg_rsrp || '', cell.coverage_level, cell.coverage_color,
+              cell.coverage_score, cell.coverage_level.toUpperCase()].join(',') + '\n';
     });
 
-    // Store for Signal Map with ML flag
     localStorage.setItem('sqlBuilderData', csv);
     localStorage.setItem('sqlBuilderTimestamp', Date.now().toString());
     localStorage.setItem('mlCoverageMode', 'true');
 
-    // Open Signal Map
-    setTimeout(() => {
-      window.open('index.html?source=sqlbuilder&ml=coverage', '_blank');
-    }, 500);
+    setTimeout(() => { window.open('index.html?source=sqlbuilder&ml=coverage', '_blank'); }, 500);
 
   } catch (err) {
-    console.error('[ML Analysis] Error:', err);
-    resultsContainer.innerHTML = `<div class="error-msg">ML Analysis failed: ${escapeHtml(err.message)}</div>`;
+    console.error('[Coverage Analysis] Error:', err);
+    resultsContainer.innerHTML = `<div class="error-msg">Coverage analysis failed: ${escapeHtml(err.message)}</div>`;
   }
 }
 
