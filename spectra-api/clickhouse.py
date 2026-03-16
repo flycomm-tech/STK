@@ -4,18 +4,20 @@ from config import CH_HOST, CH_PORT, CH_DB, CH_USER, CH_PASSWORD, CH_SSL
 
 
 def _get_client(verify_ssl: bool = True):
-    """Build an httpx client (lazy import so httpx is only needed when CH is used)."""
+    """Build an httpx client (lazy import so httpx is only needed when CH is used).
+
+    ClickHouse Cloud requires TLS 1.2 pinning. We use certifi's CA bundle
+    for proper certificate verification instead of disabling it entirely.
+    """
     import httpx
     import ssl
-    if verify_ssl:
-        ctx = ssl.create_default_context()
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    else:
-        # Fallback for environments where CA bundle is missing (e.g. some CI)
-        ctx = ssl.create_default_context()
+    import certifi
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    if not verify_ssl:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     return httpx.Client(verify=ctx, timeout=30.0)
 
 
