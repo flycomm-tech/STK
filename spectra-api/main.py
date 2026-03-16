@@ -17,8 +17,10 @@ from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Organization
+from models import Organization, User
 from seed import init_db
+from routers.auth import get_current_user
+from crypto import encrypt, decrypt
 
 from routers import rsus, alerts, clusters, dashboard, timeline, auth
 
@@ -42,7 +44,7 @@ app.add_middleware(
     allow_origins=["http://localhost:5173", "http://localhost:5174",
                    "http://localhost:3000", "http://localhost:8000",
                    "https://soc.flycomm.co"],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://spectra-[-\w]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,17 +89,32 @@ def _org_dict(o: Organization) -> dict:
             "ch_configured": bool(o.ch_host and o.ch_user and o.ch_password)}
 
 
-# ── Organizations CRUD (SQLite) ────────────────────────────────────
+# ── Helpers: verify user belongs to org ────────────────────────────
+def _require_org_member(user: User, org_id: str):
+    """Raise 403 if user doesn't belong to the org (super admins bypass)."""
+    if user.is_super_admin:
+        return
+    if user.organization_id != org_id:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
+
+
+# ── Organizations CRUD (SQLite) — all endpoints require auth ──────
 @app.get("/api/organizations")
-def list_orgs(id: Optional[str] = None, db: Session = Depends(get_db)):
+def list_orgs(id: Optional[str] = None, db: Session = Depends(get_db),
+              user: User = Depends(get_current_user)):
     q = db.query(Organization)
     if id:
         q = q.filter_by(id=id)
+    elif not user.is_super_admin:
+        q = q.filter_by(id=user.organization_id)
     return [_org_dict(o) for o in q.all()]
 
 
 @app.post("/api/organizations")
-def create_org(body: OrgCreate, db: Session = Depends(get_db)):
+def create_org(body: OrgCreate, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user)):
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Only super admins can create organizations")
     slug = body.slug or body.name.lower().replace(" ", "-")
     if db.query(Organization).filter_by(slug=slug).first():
         raise HTTPException(status_code=409, detail=f"Slug '{slug}' already exists")
@@ -110,7 +127,9 @@ def create_org(body: OrgCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/api/organizations/{org_id}")
-def get_org(org_id: str, db: Session = Depends(get_db)):
+def get_org(org_id: str, db: Session = Depends(get_db),
+            user: User = Depends(get_current_user)):
+    _require_org_member(user, org_id)
     o = db.query(Organization).filter_by(id=org_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -118,7 +137,11 @@ def get_org(org_id: str, db: Session = Depends(get_db)):
 
 
 @app.put("/api/organizations/{org_id}")
-def update_org(org_id: str, body: OrgUpdate, db: Session = Depends(get_db)):
+def update_org(org_id: str, body: OrgUpdate, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user)):
+    _require_org_member(user, org_id)
+    if not user.is_super_admin and user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can update organization settings")
     o = db.query(Organization).filter_by(id=org_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -131,7 +154,7 @@ def update_org(org_id: str, body: OrgUpdate, db: Session = Depends(get_db)):
     if body.ch_port     is not None: o.ch_port     = body.ch_port
     if body.ch_db       is not None: o.ch_db       = body.ch_db
     if body.ch_user     is not None: o.ch_user     = body.ch_user
-    if body.ch_password is not None: o.ch_password = body.ch_password
+    if body.ch_password is not None: o.ch_password = encrypt(body.ch_password)
     if body.ch_ssl      is not None: o.ch_ssl      = body.ch_ssl
     db.commit()
     db.refresh(o)
@@ -139,7 +162,10 @@ def update_org(org_id: str, body: OrgUpdate, db: Session = Depends(get_db)):
 
 
 @app.delete("/api/organizations/{org_id}")
-def delete_org(org_id: str, db: Session = Depends(get_db)):
+def delete_org(org_id: str, db: Session = Depends(get_db),
+               user: User = Depends(get_current_user)):
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Only super admins can delete organizations")
     o = db.query(Organization).filter_by(id=org_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -148,23 +174,65 @@ def delete_org(org_id: str, db: Session = Depends(get_db)):
     return {"ok": True, "id": org_id}
 
 
-# ── ClickHouse credentials for browser-side queries ──────────────
-@app.get("/api/organizations/{org_id}/ch-config")
-def get_org_ch_config(org_id: str, db: Session = Depends(get_db)):
-    """Return CH connection details (including password) for browser-side queries."""
+# ── ClickHouse query proxy — credentials NEVER leave the server ──
+class ChQueryRequest(BaseModel):
+    sql: str
+
+@app.post("/api/organizations/{org_id}/ch-query")
+def ch_query_proxy(org_id: str, body: ChQueryRequest, db: Session = Depends(get_db),
+                   user: User = Depends(get_current_user)):
+    """Execute a read-only ClickHouse query server-side. Credentials never reach the browser."""
+    _require_org_member(user, org_id)
     o = db.query(Organization).filter_by(id=org_id).first()
     if not o:
         raise HTTPException(status_code=404, detail="Organization not found")
     if not o.ch_host or not o.ch_user or not o.ch_password:
         raise HTTPException(status_code=404, detail="ClickHouse not configured for this organization")
-    return {
-        "ch_host": o.ch_host,
-        "ch_port": o.ch_port or 8443,
-        "ch_db": o.ch_db or "default",
-        "ch_user": o.ch_user,
-        "ch_password": o.ch_password,
-        "ch_ssl": bool(o.ch_ssl) if o.ch_ssl is not None else True,
-    }
+
+    # Decrypt password for CH connection
+    o.ch_password = decrypt(o.ch_password)
+
+    # Block write operations — only allow SELECT queries
+    sql_stripped = body.sql.strip().upper()
+    if not sql_stripped.startswith("SELECT") and not sql_stripped.startswith("WITH"):
+        raise HTTPException(status_code=403, detail="Only SELECT queries are allowed")
+    blocked = ["INSERT", "ALTER", "DROP", "CREATE", "TRUNCATE", "DELETE", "RENAME", "ATTACH", "DETACH"]
+    for kw in blocked:
+        if kw in sql_stripped.split():
+            raise HTTPException(status_code=403, detail=f"{kw} queries are not allowed")
+
+    from clickhouse import run_query_for_org
+    try:
+        data = run_query_for_org(body.sql, o)
+        return {"data": data, "rows": len(data)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── ClickHouse connection test (server-side, for OrgSettings) ─────
+class ChTestRequest(BaseModel):
+    host: str
+    port: int = 8443
+    db: str = "default"
+    user: str
+    password: str
+    ssl: bool = True
+
+@app.post("/api/ch-test")
+def ch_test_connection(body: ChTestRequest, user: User = Depends(get_current_user)):
+    """Test ClickHouse connection server-side — credentials never exposed to browser."""
+    if not user.is_super_admin:
+        raise HTTPException(status_code=403, detail="Only super admins can test connections")
+    from clickhouse import run_query_with_creds
+    try:
+        result = run_query_with_creds(
+            "SELECT 1 AS ok, version() AS version",
+            host=body.host, port=body.port, db=body.db,
+            ch_user=body.user, password=body.password, ssl=body.ssl,
+        )
+        return result[0] if result else {"ok": 1}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Health check ──────────────────────────────────────────────────

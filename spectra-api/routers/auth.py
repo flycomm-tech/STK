@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from config import (
     GOOGLE_CLIENT_ID, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRY_HOURS,
-    SUPER_ADMIN_EMAILS,
+    SUPER_ADMIN_EMAILS, DEV_MODE,
 )
 from database import get_db
 from models import User
@@ -78,7 +78,9 @@ class DevLoginRequest(BaseModel):
 
 @router.post("/dev-login")
 def dev_login(body: DevLoginRequest, db: Session = Depends(get_db)):
-    """Email login — find or create user by email, return JWT."""
+    """Email login — only available when DEV_MODE=true."""
+    if not DEV_MODE:
+        raise HTTPException(status_code=403, detail="Dev login is disabled in production")
     email = body.email.lower().strip()
     full_name = email.split("@")[0].replace(".", " ").title()
 

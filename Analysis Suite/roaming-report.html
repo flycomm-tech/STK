@@ -546,10 +546,10 @@ function saveCredentials() {
     user:     document.getElementById('db-user').value.trim(),
     password: btoa(document.getElementById('db-pass').value)
   };
-  localStorage.setItem(CRED_KEY, JSON.stringify(c));
+  sessionStorage.setItem(CRED_KEY, JSON.stringify(c));
 }
 function loadCredentials() {
-  const raw = localStorage.getItem(CRED_KEY);
+  const raw = sessionStorage.getItem(CRED_KEY);
   if (!raw) return;
   try {
     const c = JSON.parse(raw);
@@ -651,7 +651,7 @@ function copySQL() {
 // QUERY EXECUTOR
 // ═══════════════════════════════════════════════════════════
 async function queryClickHouse(sql) {
-  const raw = localStorage.getItem(CRED_KEY);
+  const raw = sessionStorage.getItem(CRED_KEY);
   if (!raw) throw new Error('No credentials. Configure connection first.');
   const c = JSON.parse(raw);
   if (!c.host || !c.user || !c.password) throw new Error('Fill in connection details first.');

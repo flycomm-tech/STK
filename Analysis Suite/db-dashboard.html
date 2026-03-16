@@ -322,7 +322,7 @@ function toggleConnPanel() {
 }
 
 function loadCredentials() {
-  const saved = localStorage.getItem(CREDS_KEY);
+  const saved = sessionStorage.getItem(CREDS_KEY);
   if (!saved) return;
   try {
     const c = JSON.parse(saved);
@@ -343,7 +343,7 @@ function saveCredentials() {
     user:     document.getElementById('db-user').value.trim(),
     password: btoa(document.getElementById('db-pass').value)
   };
-  localStorage.setItem(CREDS_KEY, JSON.stringify(c));
+  sessionStorage.setItem(CREDS_KEY, JSON.stringify(c));
 }
 
 function setConnStatus(state, label) {

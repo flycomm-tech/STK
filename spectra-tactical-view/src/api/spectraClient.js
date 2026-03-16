@@ -286,73 +286,28 @@ ORDER BY t ASC, imei ASC`;
   };
 }
 
-// ── Browser-side ClickHouse queries ──────────────────────────────
-
-let _chConfig = null; // cached CH credentials
-
-/** Load ClickHouse config for the current user's org from Spectra API. */
-async function loadChConfig(orgId) {
-  if (_chConfig && _chConfig._orgId === orgId) return _chConfig;
-  const cfg = await get(`/api/organizations/${orgId}/ch-config`);
-  _chConfig = { ...cfg, _orgId: orgId };
-  return _chConfig;
-}
-
-/** Clear cached CH config (call on logout or org switch). */
-function clearChConfig() {
-  _chConfig = null;
-}
+// ── Server-side ClickHouse query proxy ──────────────────────────
+// Credentials NEVER leave the server — all queries go through the API.
 
 /**
- * Execute a ClickHouse SQL query directly from the browser.
- * Returns the parsed JSON response { data: [...], rows: N, ... }.
+ * Execute a ClickHouse SQL query via the server-side proxy.
+ * Returns { data: [...], rows: N }.
  */
 async function queryClickHouse(sql, orgId) {
-  const cfg = await loadChConfig(orgId);
-  const protocol = cfg.ch_ssl ? 'https' : 'http';
-  const url = `${protocol}://${cfg.ch_host}:${cfg.ch_port}/?database=${encodeURIComponent(cfg.ch_db)}&default_format=JSON`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + btoa(`${cfg.ch_user}:${cfg.ch_password}`),
-      'Content-Type': 'text/plain',
-    },
-    body: sql,
-  });
-  if (!resp.ok) {
-    const errText = await resp.text();
-    let errMsg = `ClickHouse HTTP ${resp.status}`;
-    try { const j = JSON.parse(errText); errMsg = j.exception || errMsg; } catch { errMsg = errText || errMsg; }
-    throw new Error(errMsg);
-  }
-  const json = await resp.json();
-  if (json.exception) throw new Error(json.exception);
-  return json;
+  return post(`/api/organizations/${orgId}/ch-query`, { sql });
 }
 
 /**
- * Test ClickHouse connection with arbitrary credentials (for OrgSettings form).
- * Does NOT use cached config — tests the provided credentials directly.
+ * Test ClickHouse connection via server-side proxy (for OrgSettings form).
+ * Credentials are sent to the API only, never to ClickHouse directly from browser.
  */
 async function testChConnection({ host, port = 8443, db = 'default', user, password, ssl = true }) {
-  const protocol = ssl ? 'https' : 'http';
-  const url = `${protocol}://${host}:${port}/?database=${encodeURIComponent(db)}&default_format=JSON`;
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + btoa(`${user}:${password}`),
-      'Content-Type': 'text/plain',
-    },
-    body: 'SELECT 1 AS ok, version() AS version',
-  });
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(errText || `HTTP ${resp.status}`);
-  }
-  const json = await resp.json();
-  if (json.exception) throw new Error(json.exception);
-  return json.data?.[0] || { ok: 1 };
+  return post('/api/ch-test', { host, port, db, user, password, ssl });
 }
+
+/** @deprecated No longer needed — credentials stay server-side. */
+function loadChConfig() { return Promise.resolve({}); }
+function clearChConfig() { /* no-op */ }
 
 // ── Main export ───────────────────────────────────────────────────
 

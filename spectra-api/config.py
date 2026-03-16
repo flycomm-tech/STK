@@ -120,6 +120,7 @@ CLUSTER_INDEX = {c["id"]: c for c in CLUSTERS}
 # ── Auth config ────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 JWT_SECRET = os.getenv("JWT_SECRET", "spectra-dev-secret-change-me")
+DEV_MODE = os.getenv("DEV_MODE", "false").lower() == "true"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24 * 7  # 7 days
 

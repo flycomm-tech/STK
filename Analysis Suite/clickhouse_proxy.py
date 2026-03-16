@@ -56,7 +56,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
 
     def send_cors_headers(self):
         """Add CORS headers to response"""
-        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Origin', 'http://localhost:8000')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 

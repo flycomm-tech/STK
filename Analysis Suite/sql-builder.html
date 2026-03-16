@@ -1244,11 +1244,11 @@ function saveCredentials() {
     user: document.getElementById('db-user').value.trim(),
     password: btoa(document.getElementById('db-pass').value)
   };
-  localStorage.setItem(CREDS_KEY, JSON.stringify(c));
+  sessionStorage.setItem(CREDS_KEY, JSON.stringify(c));
 }
 
 function loadCredentials() {
-  const saved = localStorage.getItem(CREDS_KEY);
+  const saved = sessionStorage.getItem(CREDS_KEY);
   if (!saved) return;
   try {
     const c = JSON.parse(saved);
@@ -1262,7 +1262,7 @@ function loadCredentials() {
 }
 
 function clearCredentials() {
-  localStorage.removeItem(CREDS_KEY);
+  sessionStorage.removeItem(CREDS_KEY);
   document.getElementById('db-user').value = '';
   document.getElementById('db-pass').value = '';
   setConnStatus('', 'Not connected — click to configure');

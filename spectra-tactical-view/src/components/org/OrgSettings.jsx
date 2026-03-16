@@ -134,7 +134,7 @@ export default function OrgSettings({ organization, isSuperAdmin, onUpdated }) {
             )}
           </div>
           <p className="text-[11px] text-slate-500">
-            Browser queries measurements directly from ClickHouse. Enter your ClickHouse Cloud credentials below.
+            ClickHouse credentials are stored encrypted and queries are proxied server-side. Enter your ClickHouse Cloud credentials below.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
