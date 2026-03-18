@@ -1158,7 +1158,7 @@
           </button>
         </div>
         <div class="btn-row" id="tac-report-row" style="margin-top:8px;display:none">
-          <button class="btn" id="tac-report-btn" onclick="generateTacIntelligenceReport()" disabled style="background:linear-gradient(135deg,#ef4444,#8b5cf6);color:#fff;flex:1">
+          <button class="btn" id="tac-report-btn" onclick="generateTacIntelligenceReport()" disabled style="background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;flex:1">
             <span class="material-icons" style="font-size:18px">shield</span>
             Generate Intelligence Report
           </button>
@@ -2338,10 +2338,14 @@ function getRawSQL() {
     sql += `    network_PLMN,\n`;
     sql += `    network_operator,\n`;
     sql += `    network_iso,\n`;
-    sql += `    count(network_PLMN) AS counted,\n`;
+    sql += `    count(*) AS counted,\n`;
+    sql += `    any(band_name) AS band,\n`;
+    sql += `    any(cell_eci) AS cell_eci,\n`;
+    sql += `    any(cell_enb) AS cell_enb,\n`;
+    sql += `    min(${timestampCol}) AS first_seen,\n`;
+    sql += `    max(${timestampCol}) AS last_seen,\n`;
     sql += `    tupleElement(${geoCol}, 1) AS longitude,\n`;
-    sql += `    tupleElement(${geoCol}, 2) AS latitude,\n`;
-    sql += `    timestamp\n`;
+    sql += `    tupleElement(${geoCol}, 2) AS latitude\n`;
     sql += `FROM ${tableName}\n`;
     sql += `WHERE\n`;
 
@@ -2375,8 +2379,7 @@ function getRawSQL() {
     sql += `    network_operator,\n`;
     sql += `    network_iso,\n`;
     sql += `    longitude,\n`;
-    sql += `    latitude,\n`;
-    sql += `    timestamp\n`;
+    sql += `    latitude\n`;
     sql += `LIMIT 50000`;
   } else if (queryType === 'tac') {
     // TAC Anomaly Detection query
@@ -3895,10 +3898,10 @@ function showMccDataPanel(data) {
   body.style.display = '';
   document.getElementById('panel-minimize-btn').textContent = '_';
 
-  let html = '<table><thead><tr><th>PLMN</th><th>Operator</th><th>ISO</th><th>Band</th><th>Cell ECI</th><th>eNB</th><th>Records</th><th>First Seen</th><th>Lon</th><th>Lat</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>PLMN</th><th>Operator</th><th>ISO</th><th>Band</th><th>Cell ECI</th><th>eNB</th><th>Records</th><th>First Seen</th><th>Last Seen</th><th>Coords</th></tr></thead><tbody>';
   data.forEach((d, i) => {
     const mcc = ((d.network_PLMN || '').replace('-', '') || '').slice(0, 3);
-    const isForeign = mcc !== '425' && mcc !== '000' && mcc !== '255';
+    const isForeign = mcc !== '425' && mcc !== '000';
     const isCritical = CRITICAL_MCCS.includes(mcc);
     const cls = isCritical ? 'badge-critical' : isForeign ? 'badge-high' : 'badge-ok';
     const lat = parseFloat(d.latitude) || 0;
@@ -3912,7 +3915,8 @@ function showMccDataPanel(data) {
     html += `<td>${d.cell_enb || ''}</td>`;
     html += `<td style="text-align:right">${(parseInt(d.counted) || 0).toLocaleString()}</td>`;
     html += `<td>${(d.first_seen || '').substring(0, 16)}</td>`;
-    html += `<td>${lon.toFixed(5)}</td><td>${lat.toFixed(5)}</td>`;
+    html += `<td>${(d.last_seen || '').substring(0, 16)}</td>`;
+    html += `<td style="font-size:10px">${lat.toFixed(5)}, ${lon.toFixed(5)}</td>`;
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -4013,6 +4017,60 @@ function clearMccAnomalyLayer() {
   if (el) el.remove();
 }
 
+function filterMccByPlmn(plmnFilter) {
+  if (!mccAnomalyData || mccAnomalyData.length === 0) return;
+  const filtered = plmnFilter ? mccAnomalyData.filter(d => d.network_PLMN === plmnFilter) : mccAnomalyData;
+  // Re-render markers only (keep legend intact)
+  if (mccAnomalyLayer) { map.removeLayer(mccAnomalyLayer); }
+  mccAnomalyLayer = L.layerGroup();
+  const plmnSet = [...new Set(filtered.map(d => d.network_PLMN || 'Unknown'))];
+  const plmnColorMap = {};
+  // Use consistent colors from full dataset
+  const allPlmns = [...new Set(mccAnomalyData.map(d => d.network_PLMN || 'Unknown'))];
+  allPlmns.forEach((p, i) => { plmnColorMap[p] = PLMN_COLORS[i % PLMN_COLORS.length]; });
+  const maxCount = Math.max(...filtered.map(d => parseInt(d.counted) || 1));
+  filtered.forEach(d => {
+    const lat = parseFloat(d.latitude), lon = parseFloat(d.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
+    const plmn = d.network_PLMN || 'Unknown';
+    const counted = parseInt(d.counted) || 1;
+    const color = plmnColorMap[plmn];
+    const radius = Math.max(4, Math.min(12, 4 + (counted / maxCount) * 8));
+    const mcc = (plmn.replace('-', '') || '').slice(0, 3);
+    const mccInfo = typeof MCC_TABLE !== 'undefined' ? MCC_TABLE[mcc] : null;
+    const countryName = mccInfo ? mccInfo.name : '';
+    const isCritical = CRITICAL_MCCS.includes(mcc);
+    const isForeign = mcc !== '425' && mcc !== '000';
+    const marker = L.circleMarker([lat, lon], {
+      radius, fillColor: color,
+      color: isCritical ? '#ef4444' : isForeign ? '#f59e0b' : '#fff',
+      weight: isCritical ? 2 : 1, opacity: 0.9, fillOpacity: 0.75,
+    });
+    marker.bindPopup(`
+      <div style="font-family:Inter,sans-serif;font-size:13px;min-width:200px">
+        <div style="font-weight:700;margin-bottom:6px;color:${isCritical ? '#ef4444' : isForeign ? '#f59e0b' : '#3b82f6'}">
+          ${escapeHtml(plmn)} ${countryName ? '— ' + countryName : ''}
+        </div>
+        <div><strong>Operator:</strong> ${escapeHtml(d.network_operator || '—')}</div>
+        <div><strong>ISO:</strong> ${escapeHtml(d.network_iso || '—')}</div>
+        <div><strong>Records:</strong> ${counted.toLocaleString()}</div>
+        <div><strong>Band:</strong> ${escapeHtml(d.band || '—')}</div>
+        <div><strong>Cell:</strong> ${d.cell_eci || '—'} (eNB: ${d.cell_enb || '—'})</div>
+        <div><strong>First Seen:</strong> ${(d.first_seen || '').substring(0, 16)}</div>
+        <div style="color:#94a3b8;font-size:11px;margin-top:4px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      </div>
+    `, { className: 'mcc-popup' });
+    mccAnomalyLayer.addLayer(marker);
+  });
+  mccAnomalyLayer.addTo(map);
+  if (filtered.length > 0) {
+    const lats = filtered.map(d => parseFloat(d.latitude)).filter(v => !isNaN(v));
+    const lons = filtered.map(d => parseFloat(d.longitude)).filter(v => !isNaN(v));
+    map.fitBounds([[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]], { padding: [30, 30] });
+  }
+  showMccDataPanel(filtered);
+}
+
 function renderMccAnomalyOnMap(data) {
   clearMccAnomalyLayer();
   if (!data || data.length === 0) return;
@@ -4048,7 +4106,7 @@ function renderMccAnomalyOnMap(data) {
     const mccInfo = typeof MCC_TABLE !== 'undefined' ? MCC_TABLE[mcc] : null;
     const countryName = mccInfo ? mccInfo.name : '';
     const isCritical = CRITICAL_MCCS.includes(mcc);
-    const isForeign = mcc !== '425' && mcc !== '000' && mcc !== '255';
+    const isForeign = mcc !== '425' && mcc !== '000';
 
     const marker = L.circleMarker([lat, lon], {
       radius: radius,
@@ -4060,7 +4118,7 @@ function renderMccAnomalyOnMap(data) {
     });
 
     marker.bindPopup(`
-      <div style="font-family:Inter,sans-serif;font-size:13px;min-width:200px">
+      <div style="font-family:Inter,sans-serif;font-size:13px;min-width:220px">
         <div style="font-weight:700;margin-bottom:6px;color:${isCritical ? '#ef4444' : isForeign ? '#f59e0b' : '#3b82f6'}">
           ${escapeHtml(plmn)} ${countryName ? '— ' + countryName : ''}
         </div>
@@ -4069,7 +4127,7 @@ function renderMccAnomalyOnMap(data) {
         <div><strong>Records:</strong> ${counted.toLocaleString()}</div>
         <div><strong>Band:</strong> ${escapeHtml(d.band || '—')}</div>
         <div><strong>Cell:</strong> ${d.cell_eci || '—'} (eNB: ${d.cell_enb || '—'})</div>
-        <div><strong>First Seen:</strong> ${(d.first_seen || '').substring(0, 16)}</div>
+        <div><strong>First:</strong> ${(d.first_seen || '').substring(0, 16)} <strong>Last:</strong> ${(d.last_seen || '').substring(0, 16)}</div>
         <div style="color:#94a3b8;font-size:11px;margin-top:4px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
       </div>
     `, { className: 'mcc-popup' });
@@ -4097,14 +4155,24 @@ function addMccAnomalyLegend(plmnSet, colorMap, stats, totalRecords) {
 
   const ctrl = document.createElement('div');
   ctrl.id = 'mcc-anomaly-legend';
-  ctrl.style.cssText = 'position:absolute;bottom:40px;right:12px;z-index:1000;background:rgba(10,22,40,0.92);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;min-width:200px;max-height:300px;overflow-y:auto;';
+  ctrl.style.cssText = 'position:absolute;top:12px;right:12px;z-index:1000;background:rgba(10,22,40,0.92);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;min-width:220px;max-height:400px;overflow-y:auto;';
 
+  // PLMN filter dropdown
   let html = `<div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px">
     <span class="material-icons" style="font-size:16px;color:var(--red)">security</span>
     MCC Anomaly — ${totalRecords.toLocaleString()} records
+  </div>
+  <div style="margin-bottom:8px">
+    <select id="mcc-plmn-filter" onchange="filterMccByPlmn(this.value)" style="width:100%;padding:4px 6px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:11px;cursor:pointer">
+      <option value="">All PLMNs</option>
+      ${plmnSet.sort((a, b) => (stats[b]?.records || 0) - (stats[a]?.records || 0)).map(p => {
+        const m = (p.replace('-','') || '').slice(0,3);
+        const mi = typeof MCC_TABLE !== 'undefined' ? MCC_TABLE[m] : null;
+        return `<option value="${escapeHtml(p)}">${escapeHtml(p)} ${mi ? mi.name : ''} (${(stats[p]?.records||0).toLocaleString()})</option>`;
+      }).join('')}
+    </select>
   </div>`;
 
-  plmnSet.sort((a, b) => (stats[b]?.records || 0) - (stats[a]?.records || 0));
   plmnSet.slice(0, 15).forEach(plmn => {
     const mcc = (plmn.replace('-', '') || '').slice(0, 3);
     const mccInfo = typeof MCC_TABLE !== 'undefined' ? MCC_TABLE[mcc] : null;
@@ -4164,7 +4232,7 @@ function generateMccForensicReport() {
     const avgLon = entry.lons.reduce((a, b) => a + b, 0) / entry.lons.length;
 
     // Skip test/invalid
-    if (mcc === '000' || mcc === '255') return;
+    if (mcc === '000' || mcc === '001') return;
     // Skip Israel domestic
     if (mcc === '425') return;
     // Skip legitimate Jordan spillover (east of border, not phantom)
@@ -4186,6 +4254,8 @@ function generateMccForensicReport() {
       severity = 'critical'; assessment = `Israeli operator "${entry.operator}" broadcasting foreign MCC ${mcc} (${mccInfo.name}) — equipment spoofing`;
     } else if (mcc === '416' && avgLon < JORDAN_BORDER_LON) {
       severity = 'high'; assessment = 'Jordanian PLMN detected deep inside Israeli territory — beyond natural border spillover range';
+    } else if (mcc === '255') {
+      severity = 'high'; assessment = `Ukrainian MCC detected — no legitimate Ukrainian network coverage expected in this area`;
     } else if (mccInfo && mccInfo.country !== 'il') {
       severity = 'high'; assessment = `Foreign MCC ${mcc} (${mccInfo ? mccInfo.name : '?'}) detected in monitored area`;
     }
@@ -4448,7 +4518,7 @@ function addTacAnomalyLegend(total, critical, high, medium) {
 
   const ctrl = document.createElement('div');
   ctrl.id = 'tac-anomaly-legend';
-  ctrl.style.cssText = 'position:absolute;bottom:40px;right:12px;z-index:1000;background:rgba(10,22,40,0.92);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;min-width:200px;';
+  ctrl.style.cssText = 'position:absolute;top:12px;right:12px;z-index:1000;background:rgba(10,22,40,0.92);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;min-width:200px;';
 
   ctrl.innerHTML = `
     <div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px">
