@@ -2499,6 +2499,8 @@ function displayResults(result) {
   container.innerHTML = html;
 }
 
+function wrapLng(lng) { return ((lng + 180) % 360 + 360) % 360 - 180; }
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -3156,7 +3158,7 @@ function initMap() {
     drawnItems.addLayer(layer);
 
     const name = document.getElementById('polygon-name').value || `Polygon ${polygons.length + 1}`;
-    const coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+    const coords = layer.getLatLngs()[0].map(ll => [ll.lat, wrapLng(ll.lng)]);
 
     const polygon = {
       id: Date.now(),
@@ -3180,7 +3182,7 @@ function initMap() {
     e.layers.eachLayer(function (layer) {
       const polygon = polygons.find(p => p.layer === layer);
       if (polygon) {
-        polygon.coords = layer.getLatLngs()[0].map(ll => [ll.lat, ll.lng]);
+        polygon.coords = layer.getLatLngs()[0].map(ll => [ll.lat, wrapLng(ll.lng)]);
       }
     });
     generateSQL();
