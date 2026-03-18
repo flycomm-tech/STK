@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Login() {
   const [error, setError] = useState(null);
@@ -12,6 +13,12 @@ export default function Login() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // If already authenticated (e.g. DEV_MODE), redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated) navigate('/Dashboard', { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();

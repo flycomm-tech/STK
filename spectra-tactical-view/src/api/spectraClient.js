@@ -11,6 +11,8 @@
 
 import { supabase } from '@/lib/supabase';
 
+import { DEV_MODE } from '@/lib/devmode';
+
 const API_BASE = import.meta.env.VITE_SPECTRA_API || '';
 
 // ── Core HTTP helper ─────────────────────────────────────────────
@@ -18,10 +20,12 @@ const API_BASE = import.meta.env.VITE_SPECTRA_API || '';
 async function request(method, path, body) {
   const headers = { 'Content-Type': 'application/json' };
 
-  // Get token from Supabase session (auto-refreshed)
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`;
+  if (!DEV_MODE) {
+    // Get token from Supabase session (auto-refreshed)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
   }
 
   const opts = { method, headers };
@@ -29,7 +33,7 @@ async function request(method, path, body) {
 
   const res = await fetch(`${API_BASE}${path}`, opts);
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && !DEV_MODE) {
       await supabase.auth.signOut();
       window.location.href = '/login';
       throw Object.assign(new Error('Unauthorized'), { status: 401 });

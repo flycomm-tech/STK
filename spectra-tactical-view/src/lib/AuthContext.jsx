@@ -7,17 +7,32 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { spectra } from '@/api/spectraClient';
 
+import { DEV_MODE } from '@/lib/devmode';
+
+const DEV_USER = {
+  id: 'superadmin-001',
+  email: 'amir@flycomm.co',
+  full_name: 'Dev User',
+  organization_id: 'org-spectra',
+  role: 'admin',
+  is_super_admin: true,
+  custom_role: 'admin',
+};
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [user, setUser] = useState(DEV_MODE ? DEV_USER : null);
+  const [isAuthenticated, setIsAuthenticated] = useState(DEV_MODE);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(!DEV_MODE);
   const [authError, setAuthError] = useState(null);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [appPublicSettings] = useState({ id: 'spectra', public_settings: {} });
 
   useEffect(() => {
+    // In DEV_MODE, skip all Supabase auth logic
+    if (DEV_MODE) return;
+
     // Detect recovery hash before anything else
     const hash = window.location.hash;
     const isRecoveryFlow = hash.includes('type=recovery');

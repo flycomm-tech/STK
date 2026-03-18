@@ -117,6 +117,11 @@ CLUSTERS = [
 
 CLUSTER_INDEX = {c["id"]: c for c in CLUSTERS}
 
+# ── Dev mode — bypass auth entirely ────────────────────────────────
+# Set DEV_MODE=true in .env to skip JWT verification (local dev only).
+# TODO: remove when auth is fixed.
+DEV_MODE = os.getenv("DEV_MODE", "false").lower() == "true"
+
 # ── Auth config (Supabase) ─────────────────────────────────────────
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://oaynuwvfxuvdxseimqff.supabase.co")

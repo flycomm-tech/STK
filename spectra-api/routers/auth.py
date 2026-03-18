@@ -12,7 +12,7 @@ from jwt import PyJWKClient
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from config import SUPABASE_JWT_SECRET, SUPABASE_JWKS_URL, SUPER_ADMIN_EMAILS
+from config import SUPABASE_JWT_SECRET, SUPABASE_JWKS_URL, SUPER_ADMIN_EMAILS, DEV_MODE, SUPER_ADMIN
 from database import get_db
 from models import User
 
@@ -65,6 +65,13 @@ def _verify_token(token: str) -> dict:
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     """Verify Supabase JWT and find/create the local User."""
+    if DEV_MODE:
+        # Bypass auth — return the super admin (seed.py already creates it at startup)
+        user = db.query(User).filter_by(email=SUPER_ADMIN["email"]).first()
+        if not user:
+            raise HTTPException(status_code=500, detail="DEV_MODE: super admin not found — check seed.py")
+        return user
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid token")
