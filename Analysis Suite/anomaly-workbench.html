@@ -730,8 +730,8 @@ function buildExtraFilters() {
     const lls = drawnLayer.getLayers()[0].getLatLngs()[0];
     const lats = lls.map(ll => ll.lat), lons = lls.map(ll => ll.lng);
     const pad = 0.01;
-    extras.push(`location_geo_coordinates.2 BETWEEN ${(Math.min(...lats) - pad).toFixed(6)} AND ${(Math.max(...lats) + pad).toFixed(6)}`);
-    extras.push(`location_geo_coordinates.1 BETWEEN ${(Math.min(...lons) - pad).toFixed(6)} AND ${(Math.max(...lons) + pad).toFixed(6)}`);
+    extras.push(`bin_lat BETWEEN ${(Math.min(...lats) - pad).toFixed(4)} AND ${(Math.max(...lats) + pad).toFixed(4)}`);
+    extras.push(`bin_lon BETWEEN ${(Math.min(...lons) - pad).toFixed(4)} AND ${(Math.max(...lons) + pad).toFixed(4)}`);
     const pts = lls.map(ll => `(${ll.lng.toFixed(6)}, ${ll.lat.toFixed(6)})`).join(', ');
     extras.push(`pointInPolygon(location_geo_coordinates, [${pts}])`);
   }
