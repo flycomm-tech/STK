@@ -2386,8 +2386,8 @@ function getRawSQL() {
     sql += `    network_PLMN,\n`;
     sql += `    network_operator,\n`;
     sql += `    network_iso,\n`;
-    sql += `    longitude,\n`;
-    sql += `    latitude\n`;
+    sql += `    tupleElement(${geoCol}, 1),\n`;
+    sql += `    tupleElement(${geoCol}, 2)\n`;
     sql += `LIMIT 50000`;
   } else if (queryType === 'tac') {
     // TAC Anomaly Detection query
@@ -2552,8 +2552,8 @@ function getRawSQL() {
     sql += `    network_mnc,\n`;
     sql += `    network_PLMN,\n`;
     sql += `    network_operator,\n`;
-    sql += `    longitude,\n`;
-    sql += `    latitude\n`;
+    sql += `    tupleElement(${geoCol}, 1),\n`;
+    sql += `    tupleElement(${geoCol}, 2)\n`;
     sql += `ORDER BY\n`;
     sql += `    cell_enb,\n`;
     sql += `    samples DESC\n`;
@@ -4008,7 +4008,14 @@ function clearAllVisualizationLayers() {
   const gridCtrl = document.getElementById('grid-heat-control');
   if (gridCtrl) gridCtrl.remove();
   if (typeof gridHeatLayer !== 'undefined' && gridHeatLayer) { map.removeLayer(gridHeatLayer); gridHeatLayer = null; }
-  clearSitesLayer();
+  // Clear sites layers inline (also callable via clearSitesLayer())
+  if (sitesLayer) { map.removeLayer(sitesLayer); sitesLayer = null; }
+  if (sitesSectorLayer) { map.removeLayer(sitesSectorLayer); sitesSectorLayer = null; }
+  const sitesLegendEl = document.getElementById('sites-legend');
+  if (sitesLegendEl) sitesLegendEl.remove();
+  sitesData = null;
+  const sitesLoadingEl = document.getElementById('sites-loading');
+  if (sitesLoadingEl) sitesLoadingEl.remove();
   // Remove legend elements
   ['mcc-anomaly-legend', 'tac-anomaly-legend', 'contributor-map-legend'].forEach(id => {
     const el = document.getElementById(id);
@@ -5053,6 +5060,276 @@ function generateContributorsInsightReport() {
   }
   reportWindow.document.write(html);
   reportWindow.document.close();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CELL/eNB SEARCH — MAP VISUALIZATION
+// ════════════════════════════════════════════════════════════════
+
+function renderCellSearchOnMap(data) {
+  if (cellSearchLayer) { map.removeLayer(cellSearchLayer); cellSearchLayer = null; }
+  if (!data || data.length === 0) return;
+
+  cellSearchLayer = L.layerGroup();
+
+  // Assign colors by PLMN
+  const plmnSet = [...new Set(data.map(d => d.network_PLMN || 'Unknown'))];
+  const plmnColorMap = {};
+  plmnSet.forEach((p, i) => { plmnColorMap[p] = PLMN_COLORS[i % PLMN_COLORS.length]; });
+
+  const maxSamples = Math.max(...data.map(d => parseInt(d.samples) || 1));
+
+  data.forEach(d => {
+    const lat = parseFloat(d.latitude), lon = parseFloat(d.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
+    const plmn = d.network_PLMN || 'Unknown';
+    const samples = parseInt(d.samples) || 1;
+    const color = plmnColorMap[plmn];
+    const radius = Math.max(4, Math.min(14, 4 + (samples / maxSamples) * 10));
+    const mcc = (plmn.replace('-', '') || '').slice(0, 3);
+    const mccInfo = typeof MCC_TABLE !== 'undefined' ? MCC_TABLE[mcc] : null;
+    const isForeign = mcc !== '425' && mcc !== '000';
+    const isCritical = CRITICAL_MCCS.includes(mcc);
+    const avgRsrp = parseFloat(d.avg_rsrp);
+    const rsrpStr = isNaN(avgRsrp) ? '—' : avgRsrp.toFixed(1) + ' dBm';
+
+    const marker = L.circleMarker([lat, lon], {
+      radius, fillColor: color,
+      color: isCritical ? '#ef4444' : isForeign ? '#f59e0b' : '#3b82f6',
+      weight: 1.5, opacity: 0.9, fillOpacity: 0.75,
+    });
+    marker.bindPopup(`
+      <div style="font-family:Inter,sans-serif;font-size:13px;min-width:200px">
+        <div style="font-weight:700;margin-bottom:6px;color:${isCritical ? '#ef4444' : isForeign ? '#f59e0b' : '#3b82f6'}">
+          eNB ${d.cell_enb || '—'} — Cell ${d.cell_eci || d.cell_ci || '—'}
+        </div>
+        <div><strong>PLMN:</strong> ${escapeHtml(plmn)}${mccInfo ? ' (' + mccInfo.name + ')' : ''}</div>
+        <div><strong>Operator:</strong> ${escapeHtml(d.network_operator || '—')}</div>
+        <div><strong>Samples:</strong> ${samples.toLocaleString()}</div>
+        <div><strong>Avg RSRP:</strong> ${rsrpStr}</div>
+        <div><strong>First Seen:</strong> ${(d.first_seen || '').substring(0, 16)}</div>
+        <div style="color:#94a3b8;font-size:11px;margin-top:4px">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      </div>
+    `, { className: 'mcc-popup' });
+    marker.on('click', () => flyToPoint(lat, lon, 16));
+    cellSearchLayer.addLayer(marker);
+  });
+
+  cellSearchLayer.addTo(map);
+
+  const lats = data.map(d => parseFloat(d.latitude)).filter(v => !isNaN(v));
+  const lons = data.map(d => parseFloat(d.longitude)).filter(v => !isNaN(v));
+  if (lats.length > 0) {
+    map.fitBounds([[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]], { padding: [30, 30] });
+  }
+
+  showCellSearchDataPanel(data, plmnColorMap);
+}
+
+function showCellSearchDataPanel(data, plmnColorMap) {
+  const panel = document.getElementById('map-data-panel');
+  const body = document.getElementById('panel-body');
+  document.getElementById('panel-title').textContent = 'Cell/eNB Search — Results';
+  document.getElementById('panel-meta').textContent = data.length + ' cells';
+  body.style.display = '';
+  document.getElementById('panel-minimize-btn').textContent = '_';
+
+  let html = '<table><thead><tr><th>eNB</th><th>Cell ECI</th><th>PLMN</th><th>Operator</th><th>Samples</th><th>Avg RSRP</th><th>First Seen</th><th>Coords</th></tr></thead><tbody>';
+  data.forEach(d => {
+    const lat = parseFloat(d.latitude) || 0, lon = parseFloat(d.longitude) || 0;
+    const plmn = d.network_PLMN || '';
+    const mcc = (plmn.replace('-', '') || '').slice(0, 3);
+    const isCritical = CRITICAL_MCCS.includes(mcc);
+    const isForeign = mcc !== '425' && mcc !== '000';
+    const cls = isCritical ? 'badge-critical' : isForeign ? 'badge-high' : 'badge-ok';
+    const avgRsrp = parseFloat(d.avg_rsrp);
+    html += `<tr onclick="flyToPoint(${lat},${lon},16)" title="Click to fly">
+      <td>${d.cell_enb || '—'}</td>
+      <td>${d.cell_eci || d.cell_ci || '—'}</td>
+      <td><span class="badge ${cls}">${escapeHtml(plmn)}</span></td>
+      <td>${escapeHtml(d.network_operator || '—')}</td>
+      <td>${(parseInt(d.samples) || 0).toLocaleString()}</td>
+      <td>${isNaN(avgRsrp) ? '—' : avgRsrp.toFixed(1)}</td>
+      <td>${(d.first_seen || '').substring(0, 10)}</td>
+      <td style="color:var(--sub)">${lat.toFixed(4)},${lon.toFixed(4)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  body.innerHTML = html;
+  panel.classList.add('visible');
+}
+
+// ════════════════════════════════════════════════════════════════
+//  SITES DB — AUTO-OVERLAY
+// ════════════════════════════════════════════════════════════════
+
+function parseSectors(sectorsStr) {
+  if (!sectorsStr || typeof sectorsStr !== 'string') return [];
+  const sectors = [];
+  // Match each [...] group inside the outer string
+  const innerMatches = sectorsStr.match(/\[([^\[\]]+)\]/g);
+  if (!innerMatches) return [];
+  innerMatches.forEach(m => {
+    const inner = m.slice(1, -1).trim();
+    const parts = inner.split(',').map(p => p.trim().replace(/^'|'$/g, '').replace(/\[NULL\]/gi, ''));
+    sectors.push({
+      azimuth:  parseFloat(parts[0]) || 0,
+      ecgi:     parts[1] || '',
+      freq:     parseFloat(parts[2]) || 0,
+      earfcn:   parseInt(parts[3]) || 0,
+      pci:      parseInt(parts[4]) || 0,
+      power:    parseFloat(parts[6]) || 0,
+      antenna:  parts[7] || '',
+    });
+  });
+  return sectors;
+}
+
+function clearSitesLayer() {
+  if (sitesLayer) { map.removeLayer(sitesLayer); sitesLayer = null; }
+  if (sitesSectorLayer) { map.removeLayer(sitesSectorLayer); sitesSectorLayer = null; }
+  ['sites-legend', 'sites-loading'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+  sitesData = null;
+}
+
+async function fetchAndOverlaySites(resultData) {
+  if (!isConnected || !resultData || resultData.length === 0) return;
+
+  // Extract unique non-zero eNB IDs from result data
+  const enbIds = [...new Set(
+    resultData.map(d => parseInt(d.cell_enb) || 0).filter(v => v > 0)
+  )];
+  if (enbIds.length === 0) return;
+
+  // Show subtle loading badge on map
+  const loadingEl = document.createElement('div');
+  loadingEl.id = 'sites-loading';
+  loadingEl.style.cssText = 'position:absolute;bottom:50px;left:12px;z-index:1000;background:rgba(10,22,40,0.88);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:11px;color:var(--sub);font-family:Inter,sans-serif;display:flex;align-items:center;gap:6px;';
+  loadingEl.innerHTML = '<div class="place-search-spinner" style="width:12px;height:12px;border-width:1.5px"></div> Loading sites...';
+  document.getElementById('map').appendChild(loadingEl);
+
+  try {
+    const inList = enbIds.slice(0, 500).join(', ');
+    const sql = `SELECT site_id, lat, lng, tech, height, sectors FROM sites WHERE site_id IN (${inList}) AND site_id != 0 LIMIT 1000`;
+    const result = await executeClickHouseQuery(sql);
+    loadingEl.remove();
+    if (result && result.data && result.data.length > 0) {
+      sitesData = result.data;
+      renderSitesOnMap(sitesData, 'site');
+    }
+  } catch (e) {
+    loadingEl.remove();
+    console.warn('Sites overlay failed:', e.message);
+  }
+}
+
+function renderSitesOnMap(data, mode) {
+  if (sitesLayer) { map.removeLayer(sitesLayer); sitesLayer = null; }
+  if (sitesSectorLayer) { map.removeLayer(sitesSectorLayer); sitesSectorLayer = null; }
+  if (!data || data.length === 0) return;
+
+  const currentMode = mode || 'site';
+
+  if (currentMode === 'site') {
+    sitesLayer = L.layerGroup();
+    data.forEach(d => {
+      const lat = parseFloat(d.lat), lon = parseFloat(d.lng);
+      if (isNaN(lat) || isNaN(lon)) return;
+      const sectors = parseSectors(d.sectors);
+      const sectorCount = sectors.length;
+      const azimuths = sectors.map(s => s.azimuth + '°').join(', ');
+      const freqs = [...new Set(sectors.map(s => s.freq).filter(v => v > 0))].map(f => f + ' MHz').join(', ');
+
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:rgba(6,182,212,0.15);border:1.5px solid #06b6d4;border-radius:50%;box-shadow:0 0 8px rgba(6,182,212,0.4)">
+          <span class="material-icons" style="font-size:16px;color:#06b6d4">cell_tower</span>
+        </div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -16],
+      });
+
+      const marker = L.marker([lat, lon], { icon });
+      marker.bindPopup(`
+        <div style="font-family:Inter,sans-serif;font-size:13px;min-width:220px">
+          <div style="font-weight:700;margin-bottom:6px;color:#06b6d4;display:flex;align-items:center;gap:6px">
+            <span class="material-icons" style="font-size:15px">cell_tower</span>
+            Site ${d.site_id} — ${escapeHtml(d.tech || '—')}
+          </div>
+          <div><strong>Height:</strong> ${d.height || '—'} m</div>
+          <div><strong>Sectors:</strong> ${sectorCount}</div>
+          ${azimuths ? '<div><strong>Azimuths:</strong> ' + azimuths + '</div>' : ''}
+          ${freqs ? '<div><strong>Frequencies:</strong> ' + freqs + '</div>' : ''}
+          <div style="margin-top:6px;font-size:10px;color:#94a3b8">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+        </div>
+      `, { className: 'mcc-popup' });
+      sitesLayer.addLayer(marker);
+    });
+    sitesLayer.addTo(map);
+  } else {
+    // Sector mode — one marker per sector
+    sitesSectorLayer = L.layerGroup();
+    data.forEach(d => {
+      const lat = parseFloat(d.lat), lon = parseFloat(d.lng);
+      if (isNaN(lat) || isNaN(lon)) return;
+      const sectors = parseSectors(d.sectors);
+      sectors.forEach(s => {
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.6);border-radius:4px;transform:rotate(${s.azimuth}deg)">
+            <span class="material-icons" style="font-size:13px;color:#06b6d4;transform:rotate(-${s.azimuth}deg)">navigation</span>
+          </div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+          popupAnchor: [0, -14],
+        });
+        const marker = L.marker([lat, lon], { icon });
+        marker.bindPopup(`
+          <div style="font-family:Inter,sans-serif;font-size:12px;min-width:180px">
+            <div style="font-weight:700;margin-bottom:5px;color:#06b6d4">Site ${d.site_id} — Sector ${s.azimuth}°</div>
+            <div><strong>ECGI:</strong> ${escapeHtml(s.ecgi || '—')}</div>
+            <div><strong>Freq:</strong> ${s.freq || '—'} MHz</div>
+            <div><strong>EARFCN:</strong> ${s.earfcn || '—'}</div>
+            <div><strong>PCI:</strong> ${s.pci || '—'}</div>
+            <div><strong>Antenna:</strong> ${escapeHtml(s.antenna || '—')}</div>
+          </div>
+        `, { className: 'mcc-popup' });
+        sitesSectorLayer.addLayer(marker);
+      });
+    });
+    sitesSectorLayer.addTo(map);
+  }
+
+  addSitesLegend(data.length, currentMode);
+}
+
+function addSitesLegend(count, mode) {
+  const existing = document.getElementById('sites-legend');
+  if (existing) existing.remove();
+
+  const ctrl = document.createElement('div');
+  ctrl.id = 'sites-legend';
+  ctrl.style.cssText = 'position:absolute;top:12px;left:12px;z-index:1000;background:rgba(10,22,40,0.92);backdrop-filter:blur(8px);border:1px solid rgba(6,182,212,0.4);border-radius:12px;padding:10px 12px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;min-width:180px;';
+
+  const issite = mode === 'site';
+  ctrl.innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;color:#06b6d4">
+      <span class="material-icons" style="font-size:16px">cell_tower</span>
+      Sites — ${count} towers matched
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:8px">
+      <button onclick="renderSitesOnMap(sitesData,'site')" style="flex:1;font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid ${issite ? '#06b6d4' : 'var(--border)'};background:${issite ? 'rgba(6,182,212,0.2)' : 'var(--card)'};color:${issite ? '#06b6d4' : 'var(--sub)'};cursor:pointer;font-weight:${issite ? '600' : '400'}">
+        Site View
+      </button>
+      <button onclick="renderSitesOnMap(sitesData,'sector')" style="flex:1;font-size:10px;padding:3px 6px;border-radius:4px;border:1px solid ${!issite ? '#06b6d4' : 'var(--border)'};background:${!issite ? 'rgba(6,182,212,0.2)' : 'var(--card)'};color:${!issite ? '#06b6d4' : 'var(--sub)'};cursor:pointer;font-weight:${!issite ? '600' : '400'}">
+        Sector View
+      </button>
+    </div>
+    <div style="font-size:10px;color:var(--sub);margin-bottom:6px">Auto-matched by eNB ID</div>
+    <button onclick="clearSitesLayer()" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:10px;cursor:pointer">Clear Sites</button>
+  `;
+  document.getElementById('map').appendChild(ctrl);
 }
 </script>
 
