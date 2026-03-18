@@ -1487,31 +1487,38 @@ async function runAllScans() {
   overlay.classList.add('show');
   lastQueryMs   = 0;
 
-  const lim     = getLimit();
-  const extras  = buildExtraFilters();
-  let successCount = 0;
+  const lim    = getLimit();
+  const extras = buildExtraFilters();
+  const total  = ANOMALY_LIBRARY.length;
+  let done     = 0;
 
-  for (let i = 0; i < ANOMALY_LIBRARY.length; i++) {
-    const a = ANOMALY_LIBRARY[i];
-    ltxt.textContent = `Scanning ${i + 1}/${ANOMALY_LIBRARY.length}: ${a.name}…`;
-    try {
-      const t0  = Date.now();
-      const sql = a.generateSQL(defaultParamsFor(a), extras).replace(/LIMIT \d+;/, `LIMIT ${lim};`);
-      const result = await executeClickHouseQuery(sql);
-      lastQueryMs  += Date.now() - t0;
-      const rows = (result.data || []).filter(r => !isNaN(parseFloat(r.lat)) && !isNaN(parseFloat(r.lon)));
-      sessionStore[a.id] = rows.map(row => {
-        const cls  = a.classifyRow(row);
-        const conf = computeConfidence({ ...row, _severity: cls.severity });
-        return { ...row, _severity: cls.severity, _color: cls.color, _label: cls.label, _assessment: cls.assessment, _confidence: conf, _anomalyId: a.id, _anomalyName: a.name };
+  ltxt.textContent = `Launching ${total} scans in parallel…`;
+
+  const t0 = Date.now();
+  const tasks = ANOMALY_LIBRARY.map(a => {
+    const sql = a.generateSQL(defaultParamsFor(a), extras).replace(/LIMIT \d+;/, `LIMIT ${lim};`);
+    return executeClickHouseQuery(sql)
+      .then(result => {
+        const rows = (result.data || []).filter(r => !isNaN(parseFloat(r.lat)) && !isNaN(parseFloat(r.lon)));
+        sessionStore[a.id] = rows.map(row => {
+          const cls  = a.classifyRow(row);
+          const conf = computeConfidence({ ...row, _severity: cls.severity });
+          return { ...row, _severity: cls.severity, _color: cls.color, _label: cls.label, _assessment: cls.assessment, _confidence: conf, _anomalyId: a.id, _anomalyName: a.name };
+        });
+      })
+      .catch(e => {
+        console.warn(`Scan failed for ${a.id}:`, e.message);
+        sessionStore[a.id] = [];
+      })
+      .finally(() => {
+        done++;
+        ltxt.textContent = `${done}/${total} scans complete…`;
+        updateAnomalyBadges();
       });
-      successCount++;
-    } catch (e) {
-      console.warn(`Scan failed for ${a.id}:`, e.message);
-      sessionStore[a.id] = [];
-    }
-    updateAnomalyBadges();
-  }
+  });
+
+  await Promise.allSettled(tasks);
+  lastQueryMs = Date.now() - t0;
 
   overlay.classList.remove('show');
   btn.disabled = false;
