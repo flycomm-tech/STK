@@ -156,8 +156,14 @@
     .popup-assessment { font-size: 11px; color: var(--text-muted); margin-top: 10px; line-height: 1.4; border-top: 1px solid var(--card-border); padding-top: 10px; }
 
     /* ── Leaflet Draw override ── */
-    .leaflet-draw-toolbar a { background-color: var(--card) !important; border-color: var(--card-border) !important; }
-    .leaflet-draw-toolbar a:hover { background-color: var(--accent) !important; }
+    .leaflet-draw-toolbar a { background-color: var(--card) !important; border-color: var(--card-border) !important; color: var(--text-muted) !important; }
+    .leaflet-draw-toolbar a:hover { background-color: rgba(59,130,246,0.15) !important; border-color: var(--accent) !important; }
+    .leaflet-draw-toolbar a.leaflet-draw-toolbar-button-enabled { background-color: rgba(59,130,246,0.2) !important; border-color: var(--accent) !important; }
+    .leaflet-draw-section { background: var(--card) !important; border: 1px solid var(--card-border) !important; border-radius: 8px !important; }
+    .leaflet-draw-actions a { background: var(--card) !important; border-color: var(--card-border) !important; color: var(--text) !important; }
+    .leaflet-draw-actions a:hover { background: var(--accent) !important; color: #fff !important; }
+    .leaflet-draw-tooltip { background: var(--card); border: 1px solid var(--card-border); color: var(--text); border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 12px; }
+    .leaflet-draw-tooltip:before { display: none; }
 
     /* ── Result count badges on anomaly list ── */
     .result-badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 700; background: rgba(59,130,246,0.2); color: var(--accent); border: 1px solid rgba(59,130,246,0.35); flex-shrink: 0; min-width: 22px; text-align: center; }
@@ -292,8 +298,11 @@
 
         <div class="filter-row">
           <div class="poly-status" id="poly-status">No polygon — querying all locations</div>
-          <button class="btn-icon" id="poly-draw-btn" title="Draw polygon on map" onclick="startDraw()">
-            <span class="material-icons">draw</span>
+          <button class="btn-icon" id="poly-draw-btn" title="Draw polygon" onclick="startDraw()">
+            <span class="material-icons">pentagon</span>
+          </button>
+          <button class="btn-icon" id="poly-rect-btn" title="Draw rectangle" onclick="startDrawRect()">
+            <span class="material-icons">crop_square</span>
           </button>
           <button class="btn-icon" id="poly-clear-btn" title="Clear polygon" onclick="clearPolygon()" style="display:none">
             <span class="material-icons">clear</span>
@@ -345,7 +354,7 @@
       <div id="scan-all-section" style="display:none">
         <button class="btn btn-secondary" id="scan-all-btn" onclick="runAllScans()">
           <span class="material-icons" style="font-size:16px">manage_search</span>
-          Scan All 10 Anomalies
+          <span id="scan-all-label">Scan All Anomalies</span>
         </button>
         <div style="font-size:10px;color:var(--text-muted);margin-top:5px;line-height:1.4">Runs all detection types and finds locations where multiple threats overlap.</div>
       </div>
@@ -513,7 +522,7 @@ const ANOMALY_LIBRARY = [
     },
     generateSQL(p, extras) {
       const w = buildWhere([`tech IN ('LTE', 'NR', 'GSM')`], extras);
-      return `-- Tech Downgrade Detection (LTE → GSM)\n-- CRITICAL < 2 min: IMSI-Catcher or jamming | HIGH 2-15 min: soft jamming | LOW > 15 min: blind spot\nSELECT\n    coalesce(nullIf(deviceInfo_personalId,''), nullIf(deviceInfo_imei,''), deviceInfo_deviceId) AS device_id,\n    ${CELL_SEL},\n    network_PLMN, network_operator, network_iso,\n    minIf(toUnixTimestamp(timestamp), tech IN ('LTE','NR')) AS first_lte_ts,\n    minIf(toUnixTimestamp(timestamp), tech = 'GSM') AS first_gsm_ts,\n    round((first_gsm_ts - first_lte_ts) / 60.0, 1) AS minutes_lte_to_gsm,\n    count() AS counted,\n    min(timestamp) AS first_seen,\n    max(timestamp) AS last_seen,\n    avg(location_geo_coordinates.2) AS lat,\n    avg(location_geo_coordinates.1) AS lon\nFROM measurements\n${w}\nGROUP BY device_id, ${CELL_GRP}, network_PLMN, network_operator, network_iso\nHAVING first_lte_ts > 0\n   AND first_gsm_ts > 0\n   AND first_gsm_ts > first_lte_ts\n   AND minutes_lte_to_gsm <= ${p.max_minutes}\nORDER BY minutes_lte_to_gsm ASC\nLIMIT 500;`;
+      return `-- Tech Downgrade Detection (LTE → GSM)\n-- Groups by device only — LTE and GSM use different cell IDs so cannot share a cell group\n-- CRITICAL < 2 min: IMSI-Catcher or jamming | HIGH 2-15 min: soft jamming | LOW > 15 min: blind spot\nSELECT\n    coalesce(nullIf(deviceInfo_personalId,''), nullIf(deviceInfo_imei,''), deviceInfo_deviceId) AS device_id,\n    anyIf(cell_eci,  tech IN ('LTE','NR')) AS cell_eci,\n    anyIf(cell_enb,  tech IN ('LTE','NR')) AS cell_enb,\n    anyIf(cell_ecgi, tech IN ('LTE','NR')) AS cell_ecgi,\n    anyIf(cell_nci,  tech IN ('LTE','NR')) AS cell_nci,\n    anyIf(cell_lac,  tech = 'GSM') AS cell_lac,\n    anyIf(cell_cid,  tech = 'GSM') AS cell_cid,\n    network_PLMN, network_operator, network_iso,\n    minIf(toUnixTimestamp(timestamp), tech IN ('LTE','NR')) AS first_lte_ts,\n    minIf(toUnixTimestamp(timestamp), tech = 'GSM') AS first_gsm_ts,\n    round((first_gsm_ts - first_lte_ts) / 60.0, 1) AS minutes_lte_to_gsm,\n    count() AS counted,\n    min(timestamp) AS first_seen,\n    max(timestamp) AS last_seen,\n    avg(location_geo_coordinates.2) AS lat,\n    avg(location_geo_coordinates.1) AS lon\nFROM measurements\n${w}\nGROUP BY device_id, network_PLMN, network_operator, network_iso\nHAVING first_lte_ts > 0\n   AND first_gsm_ts > 0\n   AND first_gsm_ts > first_lte_ts\n   AND minutes_lte_to_gsm <= ${p.max_minutes}\nORDER BY minutes_lte_to_gsm ASC\nLIMIT 500;`;
     }
   },
   {
@@ -742,8 +751,11 @@ function initMap() {
 }
 
 function startDraw() {
-  map.addControl(drawControl);
   new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
+}
+
+function startDrawRect() {
+  new L.Draw.Rectangle(map, drawControl.options.draw.rectangle).enable();
 }
 
 function clearPolygon() {
@@ -859,6 +871,8 @@ function renderAnomalyList() {
       <div class="sev-dot ${a.maxSeverity}"></div>
       <span id="badge-${a.id}" class="result-badge" style="display:none">0</span>
     </div>`).join('');
+  const lbl = document.getElementById('scan-all-label');
+  if (lbl) lbl.textContent = `Scan All ${ANOMALY_LIBRARY.length} Anomalies`;
 }
 
 function selectAnomaly(id) {
@@ -873,8 +887,47 @@ function selectAnomaly(id) {
   document.getElementById('run-section').style.display = 'block';
   document.getElementById('scan-all-section').style.display = 'block';
   document.getElementById('sql-section').style.display = 'none';
-  // Show current SQL
+  document.getElementById('empty-state').style.display = 'none';
   refreshSQL();
+
+  // If this anomaly was already scanned, show its results immediately
+  if (sessionStore[id] !== undefined) {
+    if (corrMode) {
+      corrMode = false;
+      document.getElementById('corr-banner').classList.remove('show');
+      document.getElementById('ai-corr-btn').style.display = 'none';
+      document.getElementById('ai-analyze-btn').style.display = 'block';
+      document.getElementById('ai-response-wrap').style.display = 'none';
+      document.getElementById('ai-output').innerHTML = '';
+    }
+    const rows = sessionStore[id];
+    currentResults = rows;
+    lastQueryMs = 0;
+    if (rows.length > 0) {
+      const critical = rows.filter(r => r._severity === 'CRITICAL').length;
+      const high     = rows.filter(r => r._severity === 'HIGH').length;
+      const statsEl  = document.getElementById('data-stats');
+      statsEl.style.display = 'block';
+      statsEl.innerHTML = `<strong>${rows.length}</strong> results &nbsp;·&nbsp; <span style="color:var(--red)">${critical} CRITICAL</span> &nbsp;·&nbsp; <span style="color:var(--orange)">${high} HIGH</span>
+        <button class="btn-sm btn-secondary" onclick="exportCSV()" style="margin-left:10px;padding:3px 8px;font-size:10px;display:inline-flex;align-items:center;gap:3px;border-radius:5px">
+          <span class="material-icons" style="font-size:12px">download</span>CSV
+        </button>`;
+      document.getElementById('legend-section').style.display = 'block';
+      document.getElementById('report-section').style.display = 'block';
+      document.getElementById('ai-section').style.display = 'block';
+      document.getElementById('table-wrap').style.display = 'block';
+      document.getElementById('ai-response-wrap').style.display = 'none';
+      sortCol = null; sortDir = 1;
+      renderMarkers();
+      renderTable();
+    } else {
+      document.getElementById('data-stats').style.display = 'block';
+      document.getElementById('data-stats').innerHTML = 'No results found for this anomaly type.';
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
+      document.getElementById('table-wrap').style.display = 'none';
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
