@@ -477,8 +477,8 @@ const ANOMALY_LIBRARY = [
       return { severity: 'CRITICAL', color: '#ef4444', label: 'IMSI Catcher Proximity Spoofing', assessment: `TA=0 indicates device appears physically adjacent to base station. Consistent with IMSI-Catcher proximity spoofing or rogue BTS at measurement point.` };
     },
     generateSQL(p, extras) {
-      const w = buildWhere([`signal_timingAdvance IS NOT NULL`], extras);
-      return `-- Timing Advance = 0 Detection — ALL results CRITICAL\n-- Uses unique samples (sample_id) to avoid duplicate counting\nSELECT\n    ${CELL_SEL},\n    network_PLMN, network_operator, network_iso,\n    uniqExactIf(sample_id, signal_timingAdvance = 0) AS ta_zero_count,\n    uniqExact(sample_id) AS counted,\n    uniqExact(deviceInfo_deviceId) AS unique_devices,\n    min(timestamp) AS first_seen,\n    max(timestamp) AS last_seen,\n    avg(location_geo_coordinates.2) AS lat,\n    avg(location_geo_coordinates.1) AS lon\nFROM measurements\n${w}\nGROUP BY ${CELL_GRP}, network_PLMN, network_operator, network_iso\nHAVING ta_zero_count >= ${p.min_count}\nORDER BY ta_zero_count DESC\nLIMIT 500;`;
+      const w = buildWhere([`signal_timingAdvance IS NOT NULL`, `cell_eci != 0`], extras);
+      return `-- Timing Advance = 0 Detection — ALL results CRITICAL\n-- Uses unique samples (sample_id) to avoid duplicate counting\nSELECT\n    ${CELL_SEL},\n    network_PLMN, network_operator, network_iso, tech,\n    uniqExactIf(sample_id, signal_timingAdvance = 0) AS ta_zero_count,\n    uniqExact(sample_id) AS counted,\n    uniqExact(deviceInfo_deviceId) AS unique_devices,\n    min(timestamp) AS first_seen,\n    max(timestamp) AS last_seen,\n    avg(location_geo_coordinates.2) AS lat,\n    avg(location_geo_coordinates.1) AS lon\nFROM measurements\n${w}\nGROUP BY ${CELL_GRP}, network_PLMN, network_operator, network_iso, tech\nHAVING ta_zero_count >= ${p.min_count}\nORDER BY ta_zero_count DESC\nLIMIT 500;`;
     }
   },
   {
@@ -895,7 +895,12 @@ function computeConfidence(row) {
   const counted     = parseFloat(row.counted || 1);
   const sampleScore = Math.min(counted / 25, 1.0); // 25+ samples → full sample credit
   const sevScore    = { CRITICAL: 1.0, HIGH: 0.7, MEDIUM: 0.45, LOW: 0.25 }[row._severity] || 0.5;
-  return Math.round((sampleScore * 0.4 + sevScore * 0.6) * 100);
+  let conf = Math.round((sampleScore * 0.4 + sevScore * 0.6) * 100);
+  // Single device → likely a device issue, not a real anomaly — cap confidence
+  const devices = parseFloat(row.unique_devices);
+  if (devices === 1) conf = Math.min(conf, 35);
+  else if (devices === 2) conf = Math.min(conf, 55);
+  return conf;
 }
 
 function confLabel(pct) {
@@ -908,7 +913,12 @@ function processResults(data, anomaly) {
   const anom = anomaly || selectedAnomaly;
   currentResults = data.filter(row => {
     const lat = parseFloat(row.lat), lon = parseFloat(row.lon);
-    return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+    if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) return false;
+    // Skip rows with no cell identity at all
+    const hasCell = row.cell_ecgi || (row.cell_eci != null && row.cell_eci !== '' && row.cell_eci !== 0)
+                 || (row.cell_nci != null && row.cell_nci !== '' && row.cell_nci !== 0)
+                 || (row.cell_lac != null && row.cell_lac !== '' && row.cell_lac !== 0);
+    return hasCell;
   }).map(row => {
     const cls  = anom.classifyRow(row);
     const conf = computeConfidence({ ...row, _severity: cls.severity });
@@ -976,6 +986,7 @@ function renderMarkers() {
       ${row.cell_enb != null ? `<div class="popup-row"><span class="lbl">eNB</span><span style="font-family:monospace;font-size:11px">${row.cell_enb}</span></div>` : ''}
       <div class="popup-row"><span class="lbl">PLMN</span><span>${row.network_PLMN || '—'}</span></div>
       <div class="popup-row"><span class="lbl">Operator</span><span>${row.network_operator || '—'}</span></div>
+      ${row.tech ? `<div class="popup-row"><span class="lbl">RAT</span><span>${row.tech}</span></div>` : ''}
       <div class="popup-row"><span class="lbl">${selectedAnomaly.metricLabel}</span><span>${md}</span></div>
       <div class="popup-row"><span class="lbl">Samples</span><span>${row.counted || '—'}</span></div>
       ${row.unique_devices != null ? `<div class="popup-row"><span class="lbl">Unique Devices</span><span>${row.unique_devices}</span></div>` : ''}
@@ -1041,7 +1052,7 @@ function renderTable() {
   const mk = selectedAnomaly.metricKey, ml = selectedAnomaly.metricLabel, mu = selectedAnomaly.metricUnit || '';
   document.getElementById('table-head').innerHTML =
     th('Severity', '_severity') + th('Confidence', '_confidence') +
-    `<th>Cell / ECI</th><th>eNB</th><th>PLMN</th><th>Operator</th>` +
+    `<th>Cell / ECI</th><th>eNB</th><th>PLMN</th><th>Operator</th><th>RAT</th>` +
     th(ml, 'metric') + th('Samples', 'counted') + th('Devices', 'unique_devices') +
     th('First Seen', 'first_seen') + th('Last Seen', 'last_seen') +
     `<th>Lat / Lon</th>`;
@@ -1059,6 +1070,7 @@ function renderTable() {
       <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${cellDisp}</td>
       <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${enbDisp}</td>
       <td>${row.network_PLMN || '—'}</td><td>${row.network_operator || '—'}</td>
+      <td style="font-size:0.75rem">${row.tech || '—'}</td>
       <td style="font-family:'JetBrains Mono',monospace">${md}</td>
       <td>${row.counted || '—'}</td>
       <td>${row.unique_devices != null ? row.unique_devices : '—'}</td>
@@ -1112,6 +1124,7 @@ function generateReport() {
         <div><span style="color:#94a3b8">eNB:</span> <strong style="font-family:monospace">${row.cell_enb != null ? row.cell_enb : '—'}</strong></div>
         <div><span style="color:#94a3b8">PLMN:</span> <strong>${row.network_PLMN||'—'}</strong></div>
         <div><span style="color:#94a3b8">Operator:</span> <strong>${row.network_operator||'—'}</strong></div>
+        ${row.tech ? `<div><span style="color:#94a3b8">RAT:</span> <strong>${row.tech}</strong></div>` : ''}
         <div><span style="color:#94a3b8">${ml}:</span> <strong style="color:${c}">${md}</strong></div>
         <div><span style="color:#94a3b8">Samples:</span> <strong>${row.counted||'—'}</strong></div>
         ${row.unique_devices != null ? `<div><span style="color:#94a3b8">Unique Devices:</span> <strong>${row.unique_devices}</strong></div>` : ''}
