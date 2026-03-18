@@ -5195,11 +5195,25 @@ function clearSitesLayer() {
 async function fetchAndOverlaySites(resultData) {
   if (!isConnected || !resultData || resultData.length === 0) return;
 
-  // Extract unique non-zero eNB IDs from result data
+  // Extract unique non-zero eNB IDs
   const enbIds = [...new Set(
     resultData.map(d => parseInt(d.cell_enb) || 0).filter(v => v > 0)
   )];
-  if (enbIds.length === 0) return;
+
+  // Extract unique PLMNs (e.g. "416-77", "416-01") for GSM/cells without eNB
+  const plmns = [...new Set(
+    resultData.map(d => d.network_PLMN || d.network_plmn || '').filter(Boolean)
+  )];
+
+  // Nothing to query
+  if (enbIds.length === 0 && plmns.length === 0) return;
+
+  // Compute bounding box of result data to limit PLMN-based site pull
+  const lats = resultData.map(d => parseFloat(d.latitude || d.lat)).filter(v => !isNaN(v) && v !== 0);
+  const lons = resultData.map(d => parseFloat(d.longitude || d.lon || d.lng)).filter(v => !isNaN(v) && v !== 0);
+  const pad = 0.5; // ~50km padding
+  const latMin = Math.min(...lats) - pad, latMax = Math.max(...lats) + pad;
+  const lonMin = Math.min(...lons) - pad, lonMax = Math.max(...lons) + pad;
 
   // Show subtle loading badge on map
   const loadingEl = document.createElement('div');
@@ -5209,8 +5223,21 @@ async function fetchAndOverlaySites(resultData) {
   document.getElementById('map').appendChild(loadingEl);
 
   try {
-    const inList = enbIds.slice(0, 500).join(', ');
-    const sql = `SELECT site_id, lat, lng, tech, height, sectors FROM sites WHERE site_id IN (${inList}) AND site_id != 0 LIMIT 1000`;
+    const conditions = [];
+
+    // Match by eNB ID (LTE/NR cells)
+    if (enbIds.length > 0) {
+      conditions.push(`site_id IN (${enbIds.slice(0, 500).join(', ')})`);
+    }
+
+    // Match by PLMN extracted from sites.id field (format: {site_id}_{MCC}-{MNC}_{tech})
+    // e.g. id = '12345_416-77_GSM' → extract '416-77'
+    if (plmns.length > 0 && lats.length > 0) {
+      const plmnOr = plmns.map(p => `extract(id, '^[0-9]+_([0-9]+-[0-9]+)_') = '${p}'`).join(' OR ');
+      conditions.push(`((${plmnOr}) AND lat BETWEEN ${latMin} AND ${latMax} AND lng BETWEEN ${lonMin} AND ${lonMax})`);
+    }
+
+    const sql = `SELECT site_id, lat, lng, tech, height, sectors FROM sites WHERE (${conditions.join(' OR ')}) AND site_id != 0 LIMIT 1500`;
     const result = await executeClickHouseQuery(sql);
     loadingEl.remove();
     if (result && result.data && result.data.length > 0) {
