@@ -3088,7 +3088,7 @@ LIMIT 50000`;
     network_PLMN,
     network_operator,
     network_iso,
-    any(band_name) AS band_name,
+    any(band_name) AS band,
     count() AS counted,
     avg(${geoCol}.1) AS longitude,
     avg(${geoCol}.2) AS latitude,
