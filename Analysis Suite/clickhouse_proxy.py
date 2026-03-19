@@ -83,7 +83,7 @@ class ProxyHandler(SimpleHTTPRequestHandler):
                 return
 
             # Build ClickHouse URL with performance settings
-            url = f'https://{host}/?database={database}&default_format=JSON&enable_http_compression=1&max_execution_time=300&max_memory_usage=10000000000'
+            url = f'https://{host}/?database={database}&default_format=JSON'
 
             # Create request
             req = urllib.request.Request(url, data=query.encode('utf-8'), method='POST')

@@ -2074,7 +2074,7 @@ async function executeClickHouseQuery(query, format = 'JSON') {
     throw new Error('Please fill in all connection fields');
   }
 
-  const url = `https://${host}:${port}/?database=${encodeURIComponent(db)}&default_format=${format}&enable_http_compression=1&max_execution_time=300&max_memory_usage=10000000000`;
+  const url = `https://${host}:${port}/?database=${encodeURIComponent(db)}&default_format=${format}`;
 
   const response = await fetch(url, {
     method: 'POST',

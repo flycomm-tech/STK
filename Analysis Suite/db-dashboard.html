@@ -379,7 +379,7 @@ async function executeClickHouseQuery(sql) {
   const user = document.getElementById('db-user').value.trim();
   const pass = document.getElementById('db-pass').value;
   if (!host || !user || !pass) throw new Error('Fill in connection details first');
-  const url = `https://${host}:${port}/?database=${encodeURIComponent(db)}&default_format=JSON&enable_http_compression=1&max_execution_time=300&max_memory_usage=10000000000`;
+  const url = `https://${host}:${port}/?database=${encodeURIComponent(db)}&default_format=JSON`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: {

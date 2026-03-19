@@ -656,7 +656,7 @@ async function queryClickHouse(sql) {
   if (!raw) throw new Error('No credentials. Configure connection first.');
   const c = JSON.parse(raw);
   if (!c.host || !c.user || !c.password) throw new Error('Fill in connection details first.');
-  const url = `https://${c.host}:${c.port || '8443'}/?database=${encodeURIComponent(c.database || 'default')}&default_format=JSON&enable_http_compression=1&max_execution_time=300&max_memory_usage=10000000000`;
+  const url = `https://${c.host}:${c.port || '8443'}/?database=${encodeURIComponent(c.database || 'default')}&default_format=JSON`;
   const resp = await fetch(url, {
     method: 'POST',
     headers: {
