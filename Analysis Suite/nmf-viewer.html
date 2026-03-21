@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/png" href="Favicon.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMF Drive Test Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --navy: #0a1628;
+            --card: #162038;
+            --card-border: #1e3a5f;
+            --accent: #3b82f6;
+            --red: #ef4444;
+            --orange: #f59e0b;
+            --yellow: #eab308;
+            --cyan: #06b6d4;
+            --green: #22c55e;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --sidebar-w: 420px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--navy);
+            color: var(--text);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: var(--sidebar-w);
+            background: var(--card);
+            border-right: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #sb-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--card-border);
+        }
+        #sb-header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        #sb-header p {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        /* Tool switcher */
+        .tool-switcher {
+            display: flex; gap: 2px; padding: 8px 10px;
+            border-bottom: 1px solid var(--card-border);
+            background: var(--navy); flex-shrink: 0;
+        }
+        .tool-switcher a {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+            padding: 6px 6px; font-size: 10px; font-weight: 500;
+            border-radius: 6px; color: var(--text-dim);
+            text-decoration: none; transition: all .15s; cursor: pointer;
+        }
+        .tool-switcher a .material-icons { font-size: 14px; }
+        .tool-switcher a:hover { background: rgba(59,130,246,.08); color: var(--text); }
+        .tool-switcher a.current { background: rgba(59,130,246,.15); color: var(--accent); font-weight: 600; }
+
+        #sb-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+        #sb-body::-webkit-scrollbar { width: 4px; }
+        #sb-body::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
+
+        .sb-section {
+            margin-bottom: 20px;
+        }
+        .sb-section h3 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Upload area */
+        #upload-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed var(--card-border);
+            border-radius: 8px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(59, 130, 246, 0.05);
+            margin-top: 12px;
+        }
+        #upload-area:hover {
+            border-color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        #upload-area svg {
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+        #upload-area span {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+        #upload-area strong {
+            color: var(--accent);
+        }
+
+        /* Filters */
+        .field-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+            margin-top: 10px;
+        }
+        .field-label:first-of-type { margin-top: 0; }
+
+        select {
+            width: 100%;
+            background: var(--navy);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Stats cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-card {
+            background: var(--navy);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-card .val {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .stat-card .lbl {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* Legend */
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+        }
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1.5px solid rgba(255,255,255,.15);
+        }
+
+        /* File info */
+        .file-info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+            font-size: 0.78rem;
+        }
+        .file-info-row .label { color: var(--text-dim); }
+        .file-info-row .value { color: var(--text); font-weight: 500; font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; }
+
+        /* Data table */
+        #data-table-wrap {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+        }
+        #data-table-wrap::-webkit-scrollbar { width: 4px; }
+        #data-table-wrap::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 2px; }
+        #data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.72rem;
+        }
+        #data-table th {
+            background: var(--navy);
+            color: var(--text-dim);
+            padding: 8px 6px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            letter-spacing: 0.5px;
+        }
+        #data-table td {
+            padding: 6px;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        #data-table tr:hover {
+            background: rgba(59,130,246,.08);
+            cursor: pointer;
+        }
+        #data-table tr .sig-cell {
+            font-weight: 600;
+        }
+
+        /* Stats bar */
+        #stats-bar {
+            padding: 12px 20px;
+            background: var(--navy);
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        #stats-bar strong {
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+
+        /* View toggle */
+        .view-toggle {
+            display: flex; gap: 4px; margin-bottom: 12px;
+        }
+        .view-toggle button {
+            flex: 1; padding: 7px; border: 1px solid var(--card-border); border-radius: 6px;
+            background: transparent; color: var(--text-dim); font-size: 0.75rem;
+            font-weight: 600; cursor: pointer; transition: .15s;
+        }
+        .view-toggle button.active {
+            background: var(--accent); color: white; border-color: var(--accent);
+        }
+        .view-toggle button:not(.active):hover {
+            border-color: var(--accent); color: var(--accent);
+        }
+
+        /* Nav links */
+        #nav-links {
+            display: flex; gap: 6px; padding: 10px;
+            border-top: 1px solid var(--card-border);
+            background: var(--navy); flex-shrink: 0;
+        }
+        #nav-links a {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px;
+            flex-direction: column; padding: 7px 3px; border-radius: 8px;
+            border: 1px solid var(--card-border); color: var(--text-dim);
+            text-decoration: none; font-size: 10px; font-weight: 500;
+            transition: all 0.2s; text-align: center;
+        }
+        #nav-links a .material-icons { font-size: 17px; }
+        #nav-links a:hover { border-color: var(--accent); background: rgba(59,130,246,0.1); color: var(--text); }
+
+        /* Map */
+        #map-container {
+            flex: 1;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        #map .leaflet-tile-pane {
+            filter: brightness(1.6) contrast(1.1) saturate(1.1);
+        }
+
+        /* Empty state */
+        #empty-state {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 800;
+            background: rgba(10,22,40,.75);
+            backdrop-filter: blur(4px);
+        }
+        #empty-card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 36px 40px;
+            text-align: center;
+            max-width: 400px;
+        }
+        #empty-card .icon { font-size: 48px; margin-bottom: 12px; }
+        #empty-card h2 { font-size: 1.15rem; color: var(--accent); margin-bottom: 8px; }
+        #empty-card p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 18px; line-height: 1.6; }
+        .upload-btn {
+            display: inline-block; background: var(--accent); color: white;
+            padding: 10px 24px; border-radius: 8px; font-weight: 700; font-size: 0.9rem;
+            cursor: pointer; transition: .15s; border: none;
+        }
+        .upload-btn:hover { filter: brightness(1.2); }
+        .hint { font-size: 0.7rem !important; color: var(--text-dim) !important; margin-top: 12px !important; }
+
+        /* Loading overlay */
+        #loading-overlay {
+            position: fixed; inset: 0; background: rgba(10,22,40,.85);
+            z-index: 5000; display: none; align-items: center; justify-content: center;
+            flex-direction: column; gap: 14px;
+        }
+        .spinner {
+            width: 36px; height: 36px; border: 3px solid var(--card-border);
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        #loading-overlay p { color: var(--text-dim); font-size: 0.9rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Popup */
+        .leaflet-popup-content-wrapper {
+            background: var(--card) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--card-border) !important;
+            border-radius: 8px !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        .leaflet-popup-tip { background: var(--card) !important; }
+        .popup-grid {
+            display: grid; grid-template-columns: auto 1fr; gap: 3px 10px;
+            font-size: 0.75rem;
+        }
+        .popup-grid .pk { color: var(--text-dim); }
+        .popup-grid .pv { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<aside id="sidebar">
+    <div id="sb-header">
+        <img src="fcic.png" alt="FCIC" style="height:32px;max-width:100%;object-fit:contain;opacity:0.85;display:block;margin-bottom:8px;">
+        <h1>NMF Drive Test Viewer</h1>
+        <p id="data-source-label">No file loaded</p>
+        <label id="upload-area" for="file-input">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Drop <strong>.nmf</strong> file or <strong>click to upload</strong></span>
+        </label>
+        <input type="file" id="file-input" accept=".nmf,.NMF" style="position:absolute;width:0;height:0;opacity:0;overflow:hidden;">
+    </div>
+
+    <div class="tool-switcher">
+        <a href="sql-builder.html"><span class="material-icons">radar</span>SIGINT</a>
+        <a href="index.html"><span class="material-icons">map</span>Signal Map</a>
+        <a href="anomaly-detector.html"><span class="material-icons">radar</span>TAC Detector</a>
+        <a href="nmf-viewer.html" class="current"><span class="material-icons">route</span>NMF Viewer</a>
+    </div>
+
+    <div id="sb-body">
+        <!-- File info (hidden until loaded) -->
+        <div id="file-info-section" class="sb-section hidden">
+            <h3>File Info</h3>
+            <div id="file-info"></div>
+        </div>
+
+        <!-- Stats -->
+        <div id="stats-section" class="sb-section hidden">
+            <h3>Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="val" id="stat-gps">0</div><div class="lbl">GPS Points</div></div>
+                <div class="stat-card"><div class="val" id="stat-cells">0</div><div class="lbl">Cell Meas.</div></div>
+                <div class="stat-card"><div class="val" id="stat-duration">—</div><div class="lbl">Duration</div></div>
+                <div class="stat-card"><div class="val" id="stat-distance">—</div><div class="lbl">Distance</div></div>
+            </div>
+        </div>
+
+        <!-- View mode -->
+        <div id="view-section" class="sb-section hidden">
+            <h3>View Mode</h3>
+            <div class="view-toggle">
+                <button class="active" data-mode="route">Route</button>
+                <button data-mode="dots">Dots</button>
+                <button data-mode="heatmap">Heatmap</button>
+            </div>
+
+            <label class="field-label">Color By</label>
+            <select id="color-by">
+                <option value="signal">Signal Strength (RxLev / RSRP)</option>
+                <option value="tech">Technology (2G/3G/4G)</option>
+                <option value="speed">Speed</option>
+            </select>
+
+            <label class="field-label">Technology Filter</label>
+            <select id="tech-filter">
+                <option value="all">All Technologies</option>
+                <option value="2G">2G (GSM)</option>
+                <option value="3G">3G (WCDMA)</option>
+                <option value="4G">4G (LTE)</option>
+                <option value="5G">5G (NR)</option>
+            </select>
+        </div>
+
+        <!-- Signal legend -->
+        <div id="legend-section" class="sb-section hidden">
+            <h3>Signal Legend</h3>
+            <div id="legend-items">
+                <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Excellent (&gt; -75 dBm)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Good (-75 to -85 dBm)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>Fair (-85 to -95 dBm)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Poor (-95 to -105 dBm)</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>No Signal (&lt; -105 dBm)</div>
+            </div>
+        </div>
+
+        <!-- Data table -->
+        <div id="table-section" class="sb-section hidden">
+            <h3>Measurements <span id="meas-count" style="color:var(--accent);font-size:0.7rem;text-transform:none;letter-spacing:0;"></span></h3>
+            <div id="data-table-wrap">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Tech</th>
+                            <th>Signal</th>
+                            <th>ARFCN</th>
+                            <th>Cell ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="stats-bar">
+        <span id="status-text">Upload an NMF file to begin</span>
+        <button id="btn-fit" style="background:transparent;border:1px solid var(--card-border);border-radius:5px;padding:4px 10px;font-size:0.7rem;color:var(--text-dim);cursor:pointer;display:none;" onclick="fitBounds()">Fit View</button>
+    </div>
+
+    <div id="nav-links">
+        <a href="sql-builder.html"><span class="material-icons">radar</span>SIGINT</a>
+        <a href="anomaly-workbench.html"><span class="material-icons">biotech</span>Workbench</a>
+        <a href="roaming-report.html"><span class="material-icons">flight</span>Roaming</a>
+        <a href="db-dashboard.html"><span class="material-icons">dashboard</span>Dashboard</a>
+        <a href="/" target="_blank" style="background:rgba(34,197,94,.06);border-color:rgba(34,197,94,.3);color:#22c55e;"><span class="material-icons">hub</span>Spectra</a>
+    </div>
+</aside>
+
+<div id="map-container">
+    <div id="map"></div>
+    <div id="empty-state">
+        <div id="empty-card">
+            <div class="icon">📡</div>
+            <h2>NMF Drive Test Viewer</h2>
+            <p>Upload a Nemo Outdoor <strong>.nmf</strong> measurement file to visualize drive test routes, signal strength, and cell measurements on the map.</p>
+            <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload NMF File</button>
+            <p class="hint">Supports Nemo Outdoor 2G / 3G / 4G / 5G measurement files</p>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p id="loading-text">Parsing NMF file…</p>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MAP INIT
+// ═══════════════════════════════════════════════════════════════
+const map = L.map('map', { zoomControl: true }).setView([13.93, -89.84], 14);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 20,
+    attribution: '&copy; OSM &amp; CartoDB'
+}).addTo(map);
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let STATE = {
+    gpsPoints: [],       // {time, timeMs, lon, lat, alt, speed, satellites}
+    measurements: [],    // {time, timeMs, lon, lat, tech, techId, signal, arfcn, cellId, quality}
+    fileInfo: {},
+    viewMode: 'route',
+    colorBy: 'signal',
+    techFilter: 'all'
+};
+let layers = { route: null, dots: null, heatmap: null, markers: null };
+
+// ═══════════════════════════════════════════════════════════════
+// NMF TECH CODES
+// ═══════════════════════════════════════════════════════════════
+const TECH_MAP = {
+    1: '5G', 2: '5G', 10: '4G', 11: '4G', 12: '4G',
+    14: '3G', 15: '3G', 16: '2G', 17: '2G', 18: '2G'
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SIGNAL COLOR
+// ═══════════════════════════════════════════════════════════════
+function signalColor(dbm) {
+    if (dbm > -75)  return '#22c55e';
+    if (dbm > -85)  return '#3b82f6';
+    if (dbm > -95)  return '#eab308';
+    if (dbm > -105) return '#f59e0b';
+    return '#ef4444';
+}
+
+function techColor(tech) {
+    switch (tech) {
+        case '5G': return '#a855f7';
+        case '4G': return '#3b82f6';
+        case '3G': return '#f59e0b';
+        case '2G': return '#ef4444';
+        default:   return '#94a3b8';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NMF PARSER
+// ═══════════════════════════════════════════════════════════════
+
+function parseTimestamp(timeStr, dateStr) {
+    // timeStr: "09:13:54.789"  dateStr: "6.7.2022"
+    if (!timeStr) return null;
+    const parts = timeStr.split(':');
+    if (parts.length < 3) return null;
+    const h = parseInt(parts[0]), m = parseInt(parts[1]);
+    const sParts = parts[2].split('.');
+    const s = parseInt(sParts[0]), ms = parseInt(sParts[1] || '0');
+    // Convert to ms since midnight for interpolation
+    return h * 3600000 + m * 60000 + s * 1000 + ms;
+}
+
+function formatTime(timeMs) {
+    const h = Math.floor(timeMs / 3600000);
+    const m = Math.floor((timeMs % 3600000) / 60000);
+    const s = Math.floor((timeMs % 60000) / 1000);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function parseSafeCsv(line) {
+    // Handle quoted fields in CSV
+    const fields = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+            fields.push(current);
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    fields.push(current);
+    return fields;
+}
+
+function parseNMF(text) {
+    const lines = text.split('\n');
+    const gpsPoints = [];
+    const cellMeas = [];
+    let fileDate = '';
+    let startTime = '', stopTime = '';
+    let product = '', device = '', imei = '', imsi = '', script = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Header lines
+        if (line.startsWith('#')) {
+            const fields = parseSafeCsv(line);
+            const tag = fields[0];
+            if (tag === '#START') {
+                startTime = fields[1] || '';
+                fileDate = fields[3] || '';
+            } else if (tag === '#STOP') {
+                stopTime = fields[1] || '';
+            } else if (tag === '#PRODUCT') {
+                product = (fields[3] || '') + ' ' + (fields[4] || '');
+            } else if (tag === '#DN') {
+                device = fields[3] || '';
+            } else if (tag === '#EI') {
+                imei = fields[3] || '';
+            } else if (tag === '#SI') {
+                imsi = fields[3] || '';
+            } else if (tag === '#TS') {
+                script = fields[3] || '';
+            }
+            continue;
+        }
+
+        const fields = parseSafeCsv(line);
+        const recType = fields[0];
+
+        // GPS record: GPS,time,,lon,lat,alt,accuracy,fix_type,satellites,...
+        if (recType === 'GPS') {
+            const timeMs = parseTimestamp(fields[1], fileDate);
+            const lon = parseFloat(fields[3]);
+            const lat = parseFloat(fields[4]);
+            const alt = parseFloat(fields[5]) || 0;
+            const speed = parseFloat(fields[6]) || 0;
+            const satellites = parseInt(fields[7]) || 0;
+            if (timeMs !== null && !isNaN(lon) && !isNaN(lat) && lon !== 0 && lat !== 0) {
+                gpsPoints.push({ time: fields[1], timeMs, lon, lat, alt, speed, satellites });
+            }
+        }
+
+        // CELLMEAS record: CELLMEAS,time,,device,0,count,techId,serving,ARFCN,...
+        // For 2G (techId 16): ...,ARFCN,BSIC,,RxLev,RxLev,C/I,C/I,...,CI,LAC,...
+        // For 4G (techId 11): ...,EARFCN,PCI,PCI2,RSRP,RSRQ,SINR,CI,...
+        // For 3G (techId 14/15): ...,UARFCN,PSC,,RSCP,RSCP,Ec/No,Ec/No,...
+        if (recType === 'CELLMEAS') {
+            const timeMs = parseTimestamp(fields[1], fileDate);
+            const techId = parseInt(fields[6]) || 0;
+            const serving = parseInt(fields[7]) || 0;
+            const tech = TECH_MAP[techId] || '?';
+
+            let signal = NaN, arfcn = '', cellId = '', quality = NaN;
+
+            if (serving === 1 || serving === 0) {
+                arfcn = fields[8] || '';
+
+                if (techId === 16 || techId === 17 || techId === 18) {
+                    // 2G: RxLev at index 11
+                    signal = parseFloat(fields[11]) || NaN;
+                    quality = parseFloat(fields[13]) || NaN;
+                    cellId = fields[19] || '';
+                } else if (techId === 11 || techId === 10 || techId === 12) {
+                    // 4G LTE: RSRP at index 11, RSRQ at index 12, SINR at index 13
+                    signal = parseFloat(fields[11]) || NaN;
+                    quality = parseFloat(fields[13]) || NaN;
+                    cellId = fields[14] || '';
+                } else if (techId === 14 || techId === 15) {
+                    // 3G: RSCP at index 11
+                    signal = parseFloat(fields[11]) || NaN;
+                    quality = parseFloat(fields[13]) || NaN;
+                    cellId = fields[19] || '';
+                } else if (techId === 1 || techId === 2) {
+                    // 5G NR: SS-RSRP at index 11
+                    signal = parseFloat(fields[11]) || NaN;
+                    quality = parseFloat(fields[13]) || NaN;
+                    cellId = fields[14] || '';
+                }
+            }
+
+            if (timeMs !== null && !isNaN(signal)) {
+                cellMeas.push({
+                    time: fields[1], timeMs, tech, techId, signal, arfcn, cellId, quality
+                });
+            }
+        }
+    }
+
+    // Sort GPS by time
+    gpsPoints.sort((a, b) => a.timeMs - b.timeMs);
+    cellMeas.sort((a, b) => a.timeMs - b.timeMs);
+
+    // Interpolate GPS positions for cell measurements
+    const measurements = [];
+    for (const cm of cellMeas) {
+        const pos = interpolateGPS(gpsPoints, cm.timeMs);
+        if (pos) {
+            measurements.push({ ...cm, lon: pos.lon, lat: pos.lat });
+        }
+    }
+
+    return {
+        gpsPoints,
+        measurements,
+        fileInfo: {
+            date: fileDate,
+            startTime: startTime,
+            stopTime: stopTime,
+            product: product.trim(),
+            device, imei, imsi, script
+        }
+    };
+}
+
+function interpolateGPS(gpsPoints, timeMs) {
+    if (gpsPoints.length === 0) return null;
+    if (timeMs <= gpsPoints[0].timeMs) return gpsPoints[0];
+    if (timeMs >= gpsPoints[gpsPoints.length - 1].timeMs) return gpsPoints[gpsPoints.length - 1];
+
+    // Binary search for closest GPS points
+    let lo = 0, hi = gpsPoints.length - 1;
+    while (lo < hi - 1) {
+        const mid = (lo + hi) >> 1;
+        if (gpsPoints[mid].timeMs <= timeMs) lo = mid;
+        else hi = mid;
+    }
+
+    const a = gpsPoints[lo], b = gpsPoints[hi];
+    const dt = b.timeMs - a.timeMs;
+    if (dt === 0) return a;
+    const t = (timeMs - a.timeMs) / dt;
+    return {
+        lon: a.lon + (b.lon - a.lon) * t,
+        lat: a.lat + (b.lat - a.lat) * t
+    };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════
+
+function getFilteredMeasurements() {
+    let data = STATE.measurements;
+    if (STATE.techFilter !== 'all') {
+        data = data.filter(m => m.tech === STATE.techFilter);
+    }
+    return data;
+}
+
+function getColor(m) {
+    if (STATE.colorBy === 'tech') return techColor(m.tech);
+    if (STATE.colorBy === 'speed') {
+        const gps = interpolateGPS(STATE.gpsPoints, m.timeMs);
+        const spd = gps ? gps.speed : 0;
+        if (spd > 80) return '#a855f7';
+        if (spd > 40) return '#3b82f6';
+        if (spd > 10) return '#22c55e';
+        return '#eab308';
+    }
+    return signalColor(m.signal);
+}
+
+function clearLayers() {
+    Object.values(layers).forEach(l => { if (l) map.removeLayer(l); });
+    layers = { route: null, dots: null, heatmap: null, markers: null };
+}
+
+function render() {
+    clearLayers();
+    const data = getFilteredMeasurements();
+    if (data.length === 0) return;
+
+    if (STATE.viewMode === 'route') {
+        renderRoute(data);
+    } else if (STATE.viewMode === 'dots') {
+        renderDots(data);
+    } else if (STATE.viewMode === 'heatmap') {
+        renderHeatmap(data);
+    }
+
+    // Also render GPS track as thin line
+    if (STATE.gpsPoints.length > 1) {
+        const trackCoords = STATE.gpsPoints.map(g => [g.lat, g.lon]);
+        const trackLine = L.polyline(trackCoords, {
+            color: 'rgba(255,255,255,0.15)', weight: 1, dashArray: '4 4'
+        });
+        if (!layers.markers) layers.markers = L.layerGroup().addTo(map);
+        trackLine.addTo(layers.markers);
+    }
+
+    updateTable(data);
+    document.getElementById('meas-count').textContent = `(${data.length.toLocaleString()})`;
+}
+
+function renderRoute(data) {
+    const group = L.layerGroup().addTo(map);
+    layers.route = group;
+
+    // Draw colored polyline segments
+    for (let i = 0; i < data.length - 1; i++) {
+        const a = data[i], b = data[i + 1];
+        const color = getColor(a);
+        L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+            color, weight: 4, opacity: 0.85
+        }).addTo(group);
+    }
+
+    // Add clickable invisible circles for popups
+    const step = Math.max(1, Math.floor(data.length / 500));
+    for (let i = 0; i < data.length; i += step) {
+        const m = data[i];
+        L.circleMarker([m.lat, m.lon], {
+            radius: 6, fillOpacity: 0, opacity: 0, weight: 0
+        }).bindPopup(makePopup(m)).addTo(group);
+    }
+}
+
+function renderDots(data) {
+    const group = L.layerGroup().addTo(map);
+    layers.dots = group;
+    const step = Math.max(1, Math.floor(data.length / 2000));
+    for (let i = 0; i < data.length; i += step) {
+        const m = data[i];
+        L.circleMarker([m.lat, m.lon], {
+            radius: 4, fillColor: getColor(m), fillOpacity: 0.8,
+            color: 'rgba(255,255,255,0.3)', weight: 1
+        }).bindPopup(makePopup(m)).addTo(group);
+    }
+}
+
+function renderHeatmap(data) {
+    const heatData = data.map(m => {
+        // Normalize signal to 0-1 intensity (stronger = hotter)
+        const intensity = Math.max(0, Math.min(1, (m.signal + 120) / 80));
+        return [m.lat, m.lon, intensity];
+    });
+    layers.heatmap = L.heatLayer(heatData, {
+        radius: 18, blur: 22, maxZoom: 18,
+        gradient: { 0.0: '#0d1b2a', 0.25: '#ef4444', 0.5: '#f59e0b', 0.75: '#eab308', 1.0: '#22c55e' }
+    }).addTo(map);
+}
+
+function makePopup(m) {
+    return `<div class="popup-grid">
+        <span class="pk">Time</span><span class="pv">${m.time}</span>
+        <span class="pk">Technology</span><span class="pv">${m.tech}</span>
+        <span class="pk">Signal</span><span class="pv" style="color:${signalColor(m.signal)}">${m.signal.toFixed(1)} dBm</span>
+        <span class="pk">Quality</span><span class="pv">${isNaN(m.quality) ? '—' : m.quality.toFixed(1)}</span>
+        <span class="pk">ARFCN</span><span class="pv">${m.arfcn || '—'}</span>
+        <span class="pk">Cell ID</span><span class="pv">${m.cellId || '—'}</span>
+        <span class="pk">Position</span><span class="pv">${m.lat.toFixed(6)}, ${m.lon.toFixed(6)}</span>
+    </div>`;
+}
+
+function updateTable(data) {
+    const tbody = document.getElementById('data-table-body');
+    const step = Math.max(1, Math.floor(data.length / 300));
+    const rows = [];
+    for (let i = 0; i < data.length; i += step) {
+        const m = data[i];
+        const color = signalColor(m.signal);
+        rows.push(`<tr data-lat="${m.lat}" data-lon="${m.lon}">
+            <td>${formatTime(m.timeMs)}</td>
+            <td style="color:${techColor(m.tech)}">${m.tech}</td>
+            <td class="sig-cell" style="color:${color}">${m.signal.toFixed(1)}</td>
+            <td>${m.arfcn || '—'}</td>
+            <td>${m.cellId || '—'}</td>
+        </tr>`);
+    }
+    tbody.innerHTML = rows.join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI & EVENTS
+// ═══════════════════════════════════════════════════════════════
+
+function fitBounds() {
+    if (STATE.gpsPoints.length === 0) return;
+    const bounds = L.latLngBounds(STATE.gpsPoints.map(g => [g.lat, g.lon]));
+    map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function updateUI() {
+    const fi = STATE.fileInfo;
+    const info = document.getElementById('file-info');
+    info.innerHTML = [
+        ['Date', fi.date],
+        ['Start', fi.startTime],
+        ['Stop', fi.stopTime],
+        ['Product', fi.product],
+        ['Device', fi.device],
+        ['IMEI', fi.imei],
+        ['IMSI', fi.imsi],
+        ['Script', fi.script]
+    ].filter(r => r[1]).map(r => `<div class="file-info-row"><span class="label">${r[0]}</span><span class="value">${r[1]}</span></div>`).join('');
+
+    document.getElementById('stat-gps').textContent = STATE.gpsPoints.length.toLocaleString();
+    document.getElementById('stat-cells').textContent = STATE.measurements.length.toLocaleString();
+
+    // Duration
+    if (STATE.gpsPoints.length > 1) {
+        const dur = STATE.gpsPoints[STATE.gpsPoints.length-1].timeMs - STATE.gpsPoints[0].timeMs;
+        const mins = Math.floor(dur / 60000);
+        const secs = Math.floor((dur % 60000) / 1000);
+        document.getElementById('stat-duration').textContent = `${mins}m ${secs}s`;
+    }
+
+    // Distance
+    if (STATE.gpsPoints.length > 1) {
+        let dist = 0;
+        for (let i = 1; i < STATE.gpsPoints.length; i++) {
+            dist += haversine(STATE.gpsPoints[i-1].lat, STATE.gpsPoints[i-1].lon, STATE.gpsPoints[i].lat, STATE.gpsPoints[i].lon);
+        }
+        document.getElementById('stat-distance').textContent = dist < 1 ? `${(dist*1000).toFixed(0)} m` : `${dist.toFixed(2)} km`;
+    }
+
+    // Show sections
+    ['file-info-section', 'stats-section', 'view-section', 'legend-section', 'table-section'].forEach(id => {
+        document.getElementById(id).classList.remove('hidden');
+    });
+
+    document.getElementById('empty-state').classList.add('hidden');
+    document.getElementById('btn-fit').style.display = '';
+    document.getElementById('status-text').textContent = `${STATE.measurements.length.toLocaleString()} measurements loaded`;
+}
+
+function updateLegend() {
+    const legendEl = document.getElementById('legend-items');
+    if (STATE.colorBy === 'signal') {
+        legendEl.innerHTML = `
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Excellent (&gt; -75 dBm)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Good (-75 to -85 dBm)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>Fair (-85 to -95 dBm)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Poor (-95 to -105 dBm)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>No Signal (&lt; -105 dBm)</div>`;
+    } else if (STATE.colorBy === 'tech') {
+        legendEl.innerHTML = `
+            <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>5G (NR)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>4G (LTE)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>3G (WCDMA)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>2G (GSM)</div>`;
+    } else {
+        legendEl.innerHTML = `
+            <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>&gt; 80 km/h</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>40–80 km/h</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>10–40 km/h</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>&lt; 10 km/h</div>`;
+    }
+}
+
+// File input
+document.getElementById('file-input').addEventListener('change', e => {
+    if (e.target.files.length) loadFile(e.target.files[0]);
+});
+
+// Drag & drop
+const uploadArea = document.getElementById('upload-area');
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor = 'var(--accent)'; });
+uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = ''; });
+uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '';
+    if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+// Also accept drop on map
+const mapContainer = document.getElementById('map-container');
+mapContainer.addEventListener('dragover', e => e.preventDefault());
+mapContainer.addEventListener('drop', e => {
+    e.preventDefault();
+    if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('data-source-label').textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const result = parseNMF(e.target.result);
+            STATE.gpsPoints = result.gpsPoints;
+            STATE.measurements = result.measurements;
+            STATE.fileInfo = result.fileInfo;
+
+            updateUI();
+            updateLegend();
+            render();
+            fitBounds();
+        } catch (err) {
+            alert('Error parsing NMF file: ' + err.message);
+            console.error(err);
+        }
+        document.getElementById('loading-overlay').style.display = 'none';
+    };
+    reader.readAsText(file);
+}
+
+// View toggle
+document.querySelectorAll('.view-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATE.viewMode = btn.dataset.mode;
+        render();
+    });
+});
+
+// Color by
+document.getElementById('color-by').addEventListener('change', e => {
+    STATE.colorBy = e.target.value;
+    updateLegend();
+    render();
+});
+
+// Tech filter
+document.getElementById('tech-filter').addEventListener('change', e => {
+    STATE.techFilter = e.target.value;
+    render();
+});
+
+// Table row click → fly to
+document.getElementById('data-table-body').addEventListener('click', e => {
+    const row = e.target.closest('tr');
+    if (!row) return;
+    const lat = parseFloat(row.dataset.lat);
+    const lon = parseFloat(row.dataset.lon);
+    if (!isNaN(lat) && !isNaN(lon)) {
+        map.flyTo([lat, lon], 18, { duration: 0.8 });
+    }
+});
+</script>
+</body>
+</html>
