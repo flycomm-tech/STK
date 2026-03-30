@@ -906,6 +906,13 @@
           <option value="contributors">User Contributors (Regulator/Operator)</option>
         </select>
 
+        <!-- Table Source (MCC Anomaly only) -->
+        <div id="table-source-options" style="margin-top:12px;padding:12px;background:var(--dark);border-radius:8px;">
+          <label class="field" style="margin-bottom:8px">Query Tables</label>
+          <div class="checkbox-row"><input type="checkbox" id="tbl-measurements" checked><label for="tbl-measurements">measurements</label></div>
+          <div class="checkbox-row"><input type="checkbox" id="tbl-bad-measurements"><label for="tbl-bad-measurements">bad_measurements</label></div>
+        </div>
+
         <!-- Cell/eNB Search options -->
         <div id="cell-options" style="display:none;margin-top:12px;padding:12px;background:var(--dark);border-radius:8px;">
           <p style="font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.5;">
@@ -3389,6 +3396,9 @@ function generateSQL() {
   const dateFrom = document.getElementById('date-from').value;
   const dateTo = document.getElementById('date-to').value;
 
+  const useMeasurements = document.getElementById('tbl-measurements')?.checked ?? true;
+  const useBadMeasurements = document.getElementById('tbl-bad-measurements')?.checked ?? false;
+
   let sql = '';
 
   polygons.forEach((p, idx) => {
@@ -3401,51 +3411,95 @@ function generateSQL() {
     sql += `<span class="comment">-- ${p.name} (${p.operation.toUpperCase()})</span>\n`;
 
     if (queryType === 'select') {
-      // SELECT query for analysis
-      sql += `<span class="keyword">SELECT</span>\n`;
-      sql += `    network_PLMN,\n`;
-      sql += `    network_operator,\n`;
-      sql += `    network_iso,\n`;
-      sql += `    <span class="function">count</span>(network_PLMN) <span class="keyword">AS</span> counted,\n`;
-      sql += `    ${geoCol}.<span class="number">1</span> <span class="keyword">AS</span> longitude,\n`;
-      sql += `    ${geoCol}.<span class="number">2</span> <span class="keyword">AS</span> latitude,\n`;
-      sql += `    timestamp\n`;
-      sql += `<span class="keyword">FROM</span> ${tableName}\n`;
-      sql += `<span class="keyword">WHERE</span>\n`;
+      // measurements table query
+      if (useMeasurements) {
+        sql += `<span class="comment">-- measurements table</span>\n`;
+        sql += `<span class="keyword">SELECT</span>\n`;
+        sql += `    network_PLMN,\n`;
+        sql += `    network_operator,\n`;
+        sql += `    network_iso,\n`;
+        sql += `    <span class="function">count</span>(network_PLMN) <span class="keyword">AS</span> counted,\n`;
+        sql += `    ${geoCol}.<span class="number">1</span> <span class="keyword">AS</span> longitude,\n`;
+        sql += `    ${geoCol}.<span class="number">2</span> <span class="keyword">AS</span> latitude,\n`;
+        sql += `    timestamp\n`;
+        sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+        sql += `<span class="keyword">WHERE</span>\n`;
 
-      let conditions = [];
-      // Exclude 'Searching' state (band B0 + PLMN 255-255)
-      conditions.push(`<span class="keyword">NOT</span> (band_name = <span class="string">'B0'</span> <span class="keyword">AND</span> network_PLMN = <span class="string">'255-255'</span>)`);
+        let conditions = [];
+        conditions.push(`<span class="keyword">NOT</span> (band_name = <span class="string">'B0'</span> <span class="keyword">AND</span> network_PLMN = <span class="string">'255-255'</span>)`);
 
-      if (excludeMcc && filterMcc) {
-        conditions.push(`network_mcc != <span class="number">${filterMcc}</span>`);
-      }
-      if (includeMcc && includeMccValue) {
-        conditions.push(`network_mcc = <span class="number">${includeMccValue}</span>`);
-      }
-      if (useTimeline && dateFrom) {
-        conditions.push(`${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
-      }
-      if (useTimeline && dateTo) {
-        conditions.push(`${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`);
-      }
-      const hourCondSelect = getHourRangeCondition(timestampCol, true);
-      if (hourCondSelect) conditions.push(hourCondSelect);
-      // Add source filter
-      const sourceFilterSelect = getSourceFilterCondition(true);
-      if (sourceFilterSelect) {
-        conditions.push(sourceFilterSelect);
-      }
-      conditions.push(`<span class="function">${condition}</span>`);
+        if (excludeMcc && filterMcc) {
+          conditions.push(`network_mcc != <span class="number">${filterMcc}</span>`);
+        }
+        if (includeMcc && includeMccValue) {
+          conditions.push(`network_mcc = <span class="number">${includeMccValue}</span>`);
+        }
+        if (useTimeline && dateFrom) {
+          conditions.push(`${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
+        }
+        if (useTimeline && dateTo) {
+          conditions.push(`${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`);
+        }
+        const hourCondSelect = getHourRangeCondition(timestampCol, true);
+        if (hourCondSelect) conditions.push(hourCondSelect);
+        const sourceFilterSelect = getSourceFilterCondition(true);
+        if (sourceFilterSelect) {
+          conditions.push(sourceFilterSelect);
+        }
+        conditions.push(`<span class="function">${condition}</span>`);
 
-      sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
-      sql += `<span class="keyword">GROUP BY</span>\n`;
-      sql += `    network_PLMN,\n`;
-      sql += `    network_operator,\n`;
-      sql += `    network_iso,\n`;
-      sql += `    longitude,\n`;
-      sql += `    latitude,\n`;
-      sql += `    timestamp;\n\n`;
+        sql += `    ${conditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+        sql += `<span class="keyword">GROUP BY</span>\n`;
+        sql += `    network_PLMN,\n`;
+        sql += `    network_operator,\n`;
+        sql += `    network_iso,\n`;
+        sql += `    longitude,\n`;
+        sql += `    latitude,\n`;
+        sql += `    timestamp\n`;
+        sql += `<span class="keyword">ORDER BY</span> timestamp;\n\n`;
+      }
+
+      // bad_measurements table query (JSON extraction from raw_record)
+      if (useBadMeasurements) {
+        sql += `<span class="comment">-- bad_measurements table (rejected records)</span>\n`;
+        sql += `<span class="keyword">SELECT</span>\n`;
+        sql += `    <span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'PLMN'</span>) <span class="keyword">AS</span> network_PLMN,\n`;
+        sql += `    <span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'operator'</span>) <span class="keyword">AS</span> network_operator,\n`;
+        sql += `    <span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'iso'</span>) <span class="keyword">AS</span> network_iso,\n`;
+        sql += `    <span class="function">count</span>() <span class="keyword">AS</span> counted,\n`;
+        sql += `    <span class="function">JSONExtractFloat</span>(raw_record, <span class="string">'location'</span>, <span class="string">'geo_coordinates'</span>, <span class="number">1</span>) <span class="keyword">AS</span> longitude,\n`;
+        sql += `    <span class="function">JSONExtractFloat</span>(raw_record, <span class="string">'location'</span>, <span class="string">'geo_coordinates'</span>, <span class="number">2</span>) <span class="keyword">AS</span> latitude,\n`;
+        sql += `    timestamp,\n`;
+        sql += `    reason\n`;
+        sql += `<span class="keyword">FROM</span> bad_measurements\n`;
+        sql += `<span class="keyword">WHERE</span>\n`;
+
+        let badConditions = [];
+        if (excludeMcc && filterMcc) {
+          badConditions.push(`<span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'mcc'</span>) != <span class="string">'${filterMcc}'</span>`);
+        }
+        if (includeMcc && includeMccValue) {
+          badConditions.push(`<span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'mcc'</span>) = <span class="string">'${includeMccValue}'</span>`);
+        }
+        if (useTimeline && dateFrom) {
+          badConditions.push(`timestamp >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`);
+        }
+        if (useTimeline && dateTo) {
+          badConditions.push(`timestamp <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`);
+        }
+        badConditions.push(`<span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'PLMN'</span>) != <span class="string">''</span>`);
+
+        sql += `    ${badConditions.join('\n    <span class="keyword">AND</span> ')}\n`;
+        sql += `<span class="keyword">GROUP BY</span>\n`;
+        sql += `    network_PLMN,\n`;
+        sql += `    network_operator,\n`;
+        sql += `    network_iso,\n`;
+        sql += `    longitude,\n`;
+        sql += `    latitude,\n`;
+        sql += `    timestamp,\n`;
+        sql += `    reason\n`;
+        sql += `<span class="keyword">ORDER BY</span> timestamp;\n\n`;
+      }
 
     } else if (queryType === 'tac') {
       // TAC Anomaly Detection query
@@ -3584,35 +3638,56 @@ function generateSQL() {
   });
 
   // Add count preview
-  if (polygons.length > 0) {
+  if (polygons.length > 0 && queryType !== 'cell') {
     const p = polygons[0];
     const polyPoints = p.coords.map(c => `(${c[1].toFixed(8)}, ${c[0].toFixed(8)})`).join(', ');
     const pointInPolygon = `pointInPolygon(${geoCol}, [${polyPoints}])`;
     const condition = p.operation === 'inside' ? pointInPolygon : `NOT ${pointInPolygon}`;
 
-    sql += `<span class="comment">-- Count affected rows</span>\n`;
-    sql += `<span class="keyword">SELECT</span> <span class="function">count</span>() <span class="keyword">AS</span> affected_rows\n`;
-    sql += `<span class="keyword">FROM</span> ${tableName}\n`;
-    sql += `<span class="keyword">WHERE</span> <span class="function">${condition}</span>`;
+    if (useMeasurements || queryType !== 'select') {
+      sql += `<span class="comment">-- Count affected rows (measurements)</span>\n`;
+      sql += `<span class="keyword">SELECT</span> <span class="function">count</span>() <span class="keyword">AS</span> affected_rows\n`;
+      sql += `<span class="keyword">FROM</span> ${tableName}\n`;
+      sql += `<span class="keyword">WHERE</span> <span class="function">${condition}</span>`;
 
-    if (excludeMcc && filterMcc) {
-      // Always use != for "Exclude MCC" - find signals that are NOT this MCC
-      sql += `\n    <span class="keyword">AND</span> network_mcc != <span class="number">${filterMcc}</span>`;
+      if (excludeMcc && filterMcc) {
+        sql += `\n    <span class="keyword">AND</span> network_mcc != <span class="number">${filterMcc}</span>`;
+      }
+      if (includeMcc && includeMccValue) {
+        sql += `\n    <span class="keyword">AND</span> network_mcc = <span class="number">${includeMccValue}</span>`;
+      }
+      if (useTimeline && dateFrom) {
+        sql += `\n    <span class="keyword">AND</span> ${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`;
+      }
+      if (useTimeline && dateTo) {
+        sql += `\n    <span class="keyword">AND</span> ${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`;
+      }
+      const hourCondUpdate = getHourRangeCondition(timestampCol, true);
+      if (hourCondUpdate) {
+        sql += `\n    <span class="keyword">AND</span> ${hourCondUpdate}`;
+      }
+      sql += `;\n\n`;
     }
-    if (includeMcc && includeMccValue) {
-      sql += `\n    <span class="keyword">AND</span> network_mcc = <span class="number">${includeMccValue}</span>`;
+
+    if (useBadMeasurements && queryType === 'select') {
+      sql += `<span class="comment">-- Count affected rows (bad_measurements)</span>\n`;
+      sql += `<span class="keyword">SELECT</span> <span class="function">count</span>() <span class="keyword">AS</span> affected_rows\n`;
+      sql += `<span class="keyword">FROM</span> bad_measurements\n`;
+      sql += `<span class="keyword">WHERE</span> <span class="number">1</span>=<span class="number">1</span>`;
+      if (excludeMcc && filterMcc) {
+        sql += `\n    <span class="keyword">AND</span> <span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'mcc'</span>) != <span class="string">'${filterMcc}'</span>`;
+      }
+      if (includeMcc && includeMccValue) {
+        sql += `\n    <span class="keyword">AND</span> <span class="function">JSONExtractString</span>(raw_record, <span class="string">'network'</span>, <span class="string">'mcc'</span>) = <span class="string">'${includeMccValue}'</span>`;
+      }
+      if (useTimeline && dateFrom) {
+        sql += `\n    <span class="keyword">AND</span> timestamp >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`;
+      }
+      if (useTimeline && dateTo) {
+        sql += `\n    <span class="keyword">AND</span> timestamp <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`;
+      }
+      sql += `;`;
     }
-    if (useTimeline && dateFrom) {
-      sql += `\n    <span class="keyword">AND</span> ${timestampCol} >= <span class="function">toDateTime</span>(<span class="string">'${dateFrom} 00:00:00'</span>)`;
-    }
-    if (useTimeline && dateTo) {
-      sql += `\n    <span class="keyword">AND</span> ${timestampCol} <= <span class="function">toDateTime</span>(<span class="string">'${dateTo} 23:59:59'</span>)`;
-    }
-    const hourCondUpdate = getHourRangeCondition(timestampCol, true);
-    if (hourCondUpdate) {
-      sql += `\n    <span class="keyword">AND</span> ${hourCondUpdate}`;
-    }
-    sql += `;`;
   }
 
   document.getElementById('sql-output').innerHTML = sql;
@@ -3784,12 +3859,18 @@ document.addEventListener('DOMContentLoaded', () => {
     tacOptions.style.display = queryType === 'tac' ? 'block' : 'none';
     cellOptions.style.display = queryType === 'cell' ? 'block' : 'none';
     contributorsOptions.style.display = queryType === 'contributors' ? 'block' : 'none';
+    document.getElementById('table-source-options').style.display = queryType === 'select' ? 'block' : 'none';
 
     // Show appropriate report/action buttons per query type
     mlBtnRow.style.display = 'none'; // ML coverage analysis not applicable for sites query
     contributorsReportRow.style.display = queryType === 'contributors' ? 'flex' : 'none';
     mccReportRow.style.display = queryType === 'select' ? 'flex' : 'none';
     tacReportRow.style.display = queryType === 'tac' ? 'flex' : 'none';
+  });
+
+  // Table source checkboxes trigger SQL regeneration
+  ['tbl-measurements', 'tbl-bad-measurements'].forEach(id => {
+    document.getElementById(id).addEventListener('change', generateSQL);
   });
 
   // Cell search inputs trigger SQL regeneration
